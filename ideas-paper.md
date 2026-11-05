@@ -25,13 +25,13 @@ Eje común: arquitectura de exchanges (Binance, Hyperliquid). Cada idea parte de
 
 ---
 
-## Idea 1 · Market data de Binance con recuperación por estado (idea principal)
+## Idea 1 · RelayBook, market data de Binance con recuperación por estado (idea principal)
 
 #### Título propuesto
 
-Propuesta de Mejora de la Recuperación del Market Data de Binance ante Picos de Volatilidad mediante Relays con Resume por Estado
+Propuesta de Mejora de la Disponibilidad del Market Data de Binance ante Tormentas de Reconexión mediante la Arquitectura RelayBook con Resume por Estado
 
-Alternativa más corta: Resume por Estado, una Arquitectura de Market Data sin Tormentas de Reconexión. El Caso de Binance.
+El título dice tormentas de reconexión y no fallas metaestables, porque las tormentas están documentadas y la metaestabilidad del contrato de Binance es lo que el paper demuestra por simulación.
 
 #### En una frase
 
@@ -114,7 +114,7 @@ La literatura de 2023 a 2026 sobre exchanges en la nube optimiza la equidad de e
 
 ---
 
-#### Arquitectura propuesta
+#### Arquitectura propuesta: RelayBook
 
 ```
 REFERENCIA · contrato público de Binance
@@ -124,7 +124,7 @@ Matching ──► Publisher ──► WebSocket deltas ──► Cliente
                               REST /depth snapshot (rate limit, 429, ban)
    La recuperación sube al origen, y su costo crece con los clientes desconectados.
 
-PROPUESTA · relays con resume por estado
+PROPUESTA · RelayBook, relays con resume por estado
                  ┌─────────────── Origen ────────────────┐
                  │ Matching ──► Feed secuenciado         │
                  │              deltas + snapshot cíclico │  tasa fija, no depende de N
@@ -148,7 +148,7 @@ PROPUESTA · relays con resume por estado
 
 #### Hipótesis
 
-La arquitectura con relays y resume por estado no tiene estado metaestable. Bajo un pico de 10x mensajes con desconexiones correlacionadas cumple tres propiedades:
+La hipótesis tiene dos partes. La primera es que el contrato público de Binance, simulado con su tráfico real reproducido a 10x, permanece degradado después de retirar el pico, lo que demuestra que puede entrar en una falla metaestable. La segunda es que RelayBook no tiene estado metaestable. Bajo un pico de 10x mensajes con desconexiones correlacionadas cumple tres propiedades:
 1. La carga del origen se mantiene constante sin importar cuántos clientes se desconecten.
 2. El costo de recuperar a un cliente está acotado por el número de niveles distintos que cambiaron durante su desconexión, que nunca supera la profundidad del libro, y no depende de la tasa de mensajes.
 3. Al retirar el pico, el sistema vuelve al estado sano en un tiempo acotado y sin intervención manual.
