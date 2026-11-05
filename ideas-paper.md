@@ -99,11 +99,31 @@ La arquitectura propuesta no tiene estado metaestable. Bajo un pico de 10x mensa
 
 Mecanismo. Una falla metaestable necesita que el trabajo de recuperación compita por la misma capacidad que evita nuevas fallas. En la arquitectura propuesta ese loop no se cierra en el origen, porque ningún tráfico de recuperación sube hasta él y el snapshot cíclico tiene tasa fija. Dentro de cada relay el trabajo de recuperación queda limitado a sus propios clientes, y la conflation evita que un cliente lento llegue a desconectarse, con lo que se elimina el trigger en su origen.
 
+Sustento de cada propiedad:
+
+| Propiedad | Se sustenta en |
+|---|---|
+| 1. Carga del origen constante | SRM (Floyd et al., SIGCOMM 1995) muestra que la recuperación local evita que las solicitudes de retransmisión lleguen a la fuente, el problema de NACK implosion. RMTP (Paul et al., IEEE JSAC 1997) lo organiza en una jerarquía de designated receivers. Jasper (arXiv 2402.09527) demuestra que un overlay de proxies es viable en la nube sin multicast |
+| 2. Recuperación acotada | El data carousel (Byers et al., SIGCOMM 1998) permite que un receptor se sincronice esperando el siguiente ciclo, sin pedir nada. El Market Recovery feed de CME MDP 3.0 opera así en producción |
+| 3. Retorno sin intervención | Según Bronson et al. (HotOS 2021) y Huang et al. (OSDI 2022), sin sustaining effect no existe el estado metaestable. Delta‑state CRDTs (Almeida et al., JPDC 2018) garantizan que la conflation no altera el libro, lo que permite evitar la desconexión que actúa como trigger |
+
 Refutación. La hipótesis cae si la carga del origen crece con el número de clientes desconectados, si el tiempo de recuperación crece con el número de clientes recuperándose a la vez, o si los propios relays entran en un estado metaestable al saturarse con las reconexiones de su región. Este último caso define el límite de clientes por relay, que forma parte del dimensionamiento de la arquitectura.
 
 #### Cómo se demuestra
 
 Las tres propiedades se derivan primero de forma analítica a partir de la estructura, y luego se verifican con un POC de la arquitectura (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico de mensajes con desconexiones correlacionadas, lo retira y mide carga del origen frente al número de desconectados, tiempo de recuperación por cliente, staleness p99 y tiempo hasta el estado sano. El contrato público de Binance se reproduce solo como línea de referencia para cuantificar la mejora.
+
+#### Métricas de éxito
+
+Los umbrales son una propuesta inicial y se fijan en el Entregable II.
+
+| Métrica | Cómo se mide | Criterio de éxito |
+|---|---|---|
+| Carga del origen frente a clientes desconectados | Mensajes por segundo y CPU del origen con 0 %, 10 %, 30 % y 50 % de clientes desconectados | Variación menor a 5 % entre 0 % y 50 % |
+| Tiempo de recuperación por cliente | Desde la reconexión hasta tener un libro válido, p99 | Menor o igual al periodo del snapshot más el RTT al relay, sin importar cuántos se recuperan a la vez |
+| Tiempo hasta el estado sano | Desde que termina el pico hasta que 99 % de los clientes tiene libro válido | Acotado y sin intervención manual |
+| Staleness p99 durante el pico | Diferencia entre el precio que ve el cliente y el del origen | Menor a 1 s |
+| Capacidad por relay | Clientes por relay antes de que el relay se sature | Valor medido que define el dimensionamiento |
 
 #### Plan por semana
 
@@ -183,11 +203,30 @@ El risk engine event‑sourced ejecuta un algoritmo de ADL optimizado durante un
 
 Mecanismo. La vista es una función determinista del prefijo del journal, así que mantenerla con cada trade reparte el costo en el tiempo y la consulta en el déficit cuesta O(k log n) para k posiciones cerradas. El projector lee el journal sin bloquear al matching, y la reproducibilidad sale de versionar cada decisión con el número de secuencia.
 
+Sustento de cada propiedad:
+
+| Propiedad | Se sustenta en |
+|---|---|
+| 1. Latencia independiente del número de posiciones | DBSP (Budiu et al., VLDB 2023) muestra que el mantenimiento incremental de una vista cuesta en proporción al cambio y no al tamaño de los datos |
+| 2. Matching sin impacto | En LMAX (Fowler, The LMAX Architecture) los consumidores del journal leen sin bloquear al productor. CQRS separa el modelo de escritura del de lectura |
+| 3. Decisión reproducible | El enfoque de state machine (Schneider, ACM Computing Surveys 1990) garantiza que el mismo prefijo del log produce el mismo estado |
+
+La necesidad de un ADL mejor la establecen arXiv 2512.01112, 2602.15182 y 2603.15963.
+
 Refutación. La hipótesis cae si durante la cascada el projector no alcanza la tasa de eventos y su lag crece sin límite, ya que la vista se volvería un componente saturado. Ese punto define la capacidad del projector.
 
 #### Cómo se demuestra
 
 Replay de los fills públicos de Hyperliquid del 10/10/2025 a 1x y 10x de velocidad. Se mide latencia de decisión frente al número de posiciones, lag del projector, latencia p99 del matching con y sin projector, y se verifica que reproducir el journal da las mismas decisiones. El exceso en USD se reporta como resultado secundario, porque depende del algoritmo de los papers.
+
+#### Métricas de éxito
+
+| Métrica | Cómo se mide | Criterio de éxito |
+|---|---|---|
+| Latencia de decisión de ADL | p99 por déficit con 10 mil, 100 mil y 1 millón de posiciones | Crecimiento logarítmico, sin saltos proporcionales a n |
+| Impacto en el matching | Latencia p99 del matching con y sin projector | Diferencia menor a 5 % |
+| Lag del projector | Eventos pendientes durante el replay a 10x | Acotado durante toda la cascada |
+| Reproducibilidad | Decisiones al reproducir el journal frente a las originales | 100 % idénticas |
 
 ---
 
@@ -244,11 +283,29 @@ La arquitectura con escrow cumple tres propiedades:
 
 Mecanismo. Bailis et al. prueban que el invariante de saldo exige coordinación, y el escrow la concentra en la transferencia de reservas, que ocurre solo cuando una reserva se agota. La propiedad 3 sale de que la suma de reservas nunca supera el saldo global, condición que la transferencia preserva por construcción.
 
+Sustento de cada propiedad:
+
+| Propiedad | Se sustenta en |
+|---|---|
+| 1. Admisión sin coordinación | H‑Store (Stonebraker et al., VLDB 2007) muestra que las transacciones de una sola partición no necesitan coordinación. Escrow (O'Neil, TODS 1986) permite descontar de una reserva local sin bloquear el total |
+| 2. Coordinación solo por transferencia | Homeostasis (Roy et al., SIGMOD 2015) solo comunica nodos cuando se viola un treaty local |
+| 3. Saldo nunca negativo | Bailis et al. (VLDB 2015) prueban que este invariante exige coordinación, y escrow la concentra en la transferencia, manteniendo la suma de reservas menor o igual al saldo |
+
 Refutación. La hipótesis cae si, durante un listing, las transferencias de reservas se vuelven tan frecuentes como las órdenes, porque la coordinación volvería a ser por orden. Ese punto define el límite de concentración que la arquitectura soporta.
 
 #### Cómo se demuestra
 
 Mini exchange con 8 particiones. Se varía el porcentaje de usuarios multi‑par y se simula un listing con demanda concentrada. Se mide throughput por partición, latencia p99, transferencias de reservas por segundo y órdenes rechazadas por reserva insuficiente, y un checker verifica el invariante de saldo en cada paso. El diseño con saldo central se usa solo como línea de referencia.
+
+#### Métricas de éxito
+
+| Métrica | Cómo se mide | Criterio de éxito |
+|---|---|---|
+| Throughput por partición | Órdenes por segundo con 0 %, 25 %, 50 % y 75 % de usuarios multi‑par | Variación menor a 10 % |
+| Coordinación por orden | Transferencias de reservas divididas entre órdenes aceptadas | Menor a 1 % fuera del listing |
+| Violaciones del invariante | Saldos negativos detectados por el checker | 0 |
+| Rechazos por reserva insuficiente | Porcentaje de órdenes rechazadas con saldo total suficiente | Medido y reportado como costo del diseño |
+| Pausa de migración | Tiempo sin aceptar órdenes al mover el par caliente | Proporcional al journal pendiente, no al tamaño del libro |
 
 ---
 
