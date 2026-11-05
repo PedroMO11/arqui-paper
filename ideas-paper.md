@@ -51,11 +51,11 @@ Lo que no existe: un post‑mortem de Binance que atribuya un incidente a una to
 
 #### Base académica
 
-Bronson et al. (HotOS 2021) definen la falla metaestable como un sistema que entra en un estado malo por un trigger y permanece ahí por un sustaining effect, un loop donde el trabajo generado por las fallas consume la capacidad que evitaría nuevas fallas. Huang et al. (OSDI 2022) documentan 22 incidentes reales con esa estructura. Isaacs, Alvaro et al. (HotOS 2025) proponen simular sistemas para encontrar modos metaestables antes de que ocurran. El mismo patrón aparece en reliable multicast como NACK implosion, donde muchos receptores piden retransmisión a la fuente y la colapsan (SRM, Floyd et al., SIGCOMM 1995).
+Bronson et al. (HotOS 2021) definen la falla metaestable como un sistema que entra en un estado malo por un trigger y permanece ahí por un sustaining effect, un loop donde el trabajo generado por las fallas consume la capacidad que evitaría nuevas fallas. Huang et al. (OSDI 2022) documentan 22 incidentes reales con esa estructura. Isaacs, Alvaro et al. (HotOS 2025) proponen simular sistemas para encontrar modos metaestables antes de que ocurran, arXiv 2510.03551 (2025) los modela con cadenas de Markov para predecir tiempos de recuperación, y arXiv 2606.00942 (2026) argumenta, con el retry storm como caso central, que el problema está en cómo se programa el trabajo de recuperación. En exchanges en la nube, CloudEx (HotOS 2021), DBO (Gupta et al., SIGCOMM 2023) y Jasper (Haseeb et al., arXiv 2402.09527, 2024‑2025) distribuyen market data con overlays de proxies sin multicast. En Age of Information, Yates et al. (IEEE JSAC 2021) muestran que para información de estado reemplazar la actualización pendiente por la más reciente reduce la antigüedad de lo que ve el receptor.
 
 #### Brecha
 
-La literatura de metastable failures estudia storage, RPC y microservicios, y sus soluciones son sobre todo tácticas, como load shedding, control de retries y admission control. Huang et al. reportan load shedding en más de 55 % de las recuperaciones estudiadas. Esas tácticas protegen al servidor descartando trabajo, pero en market data un resync descartado deja al cliente con el libro inválido. Por otro lado, las soluciones estructurales de reliable multicast (recuperación local y retransmisión cíclica) asumen IP multicast, que internet pública y las nubes no ofrecen. Falta una arquitectura que lleve esas soluciones estructurales a distribución por WebSocket hacia millones de clientes retail.
+La literatura de metastable failures estudia storage, RPC y microservicios, y sus soluciones son sobre todo tácticas, como load shedding, control de retries y admission control. Huang et al. reportan load shedding en más de 55 % de las recuperaciones estudiadas. Esas tácticas protegen al servidor descartando trabajo, pero en market data un resync descartado deja al cliente con el libro inválido. Por otro lado, CloudEx, DBO y Jasper optimizan la equidad de entrega hacia cientos de market makers y no la recuperación de millones de clientes retail tras una desconexión. Falta una arquitectura de distribución por WebSocket donde la recuperación no compita con el camino principal.
 
 #### Arquitectura propuesta
 
@@ -83,10 +83,10 @@ PROPUESTA · distribución jerárquica por push con recuperación local
 
 | Decisión de arquitectura | Qué hace | Fundamento |
 |---|---|---|
-| Separar el camino de distribución del camino de recuperación | El origen solo emite un feed de tasa fija y la recuperación ocurre en el tier de relays | Recuperación local de SRM y designated receivers de RMTP (Paul et al., IEEE JSAC 1997) |
-| Tier de edge relays como overlay sobre unicast | Cada región tiene un relay con su propia réplica del libro que atiende las reconexiones de sus clientes | Jasper (Haseeb et al., arXiv 2402.09527, 2024‑2025), overlay de proxies en la nube para market data de un exchange |
-| Snapshot cíclico dentro del feed | El libro completo circula en loop, así un relay o cliente desincronizado se recupera sin hacer requests | Data carousel (Byers et al., SIGCOMM 1998) y Market Recovery feed de CME MDP 3.0 |
-| Conflation por cliente en el relay | Si la cola de un cliente lento crece, el relay fusiona los deltas pendientes y envía el último valor por nivel de precio, por lo que la conexión no se corta | Delta‑state CRDTs (Almeida, Shoker y Baquero, JPDC 2018). Los deltas de Binance traen cantidades absolutas por nivel, así que el libro es un mapa de registros last‑writer‑wins y fusionar deltas no altera el estado final. CME opera un feed conflated para BrokerTec |
+| Separar el camino de distribución del camino de recuperación | El origen solo emite un feed de tasa fija y la recuperación ocurre en el tier de relays | Bronson et al. (HotOS 2021) y arXiv 2606.00942 (2026), ya que eliminar el sustaining effect exige que la recuperación no compita con la capacidad del camino principal |
+| Tier de edge relays como overlay sobre unicast | Cada región tiene un relay con su propia réplica del libro que atiende las reconexiones de sus clientes | Jasper (arXiv 2402.09527, 2024‑2025) y DBO (SIGCOMM 2023), overlays de proxies en la nube para market data de exchanges |
+| Snapshot cíclico dentro del feed | El libro completo circula en loop, así un relay o cliente desincronizado se recupera sin hacer requests | Market Recovery feed de CME MDP 3.0 (documentación vigente), que sincroniza el snapshot con el incremental mediante LastMsgSeqNumProcessed |
+| Conflation por cliente en el relay | Si la cola de un cliente lento crece, el relay fusiona los deltas pendientes y envía el último valor por nivel de precio, por lo que la conexión no se corta | Age of Information (Yates et al., IEEE JSAC 2021), donde reemplazar la actualización pendiente por la más reciente reduce la antigüedad. Binance documenta que cada delta trae la cantidad absoluta del nivel, por lo que fusionar deltas no altera el libro final. CME opera un feed conflated para BrokerTec |
 
 El estilo resultante es un publish‑subscribe jerárquico basado en push, con el estado del libro replicado en los relays bajo consistencia eventual.
 
@@ -103,9 +103,9 @@ Sustento de cada propiedad:
 
 | Propiedad | Se sustenta en |
 |---|---|
-| 1. Carga del origen constante | SRM (Floyd et al., SIGCOMM 1995) muestra que la recuperación local evita que las solicitudes de retransmisión lleguen a la fuente, el problema de NACK implosion. RMTP (Paul et al., IEEE JSAC 1997) lo organiza en una jerarquía de designated receivers. Jasper (arXiv 2402.09527) demuestra que un overlay de proxies es viable en la nube sin multicast |
-| 2. Recuperación acotada | El data carousel (Byers et al., SIGCOMM 1998) permite que un receptor se sincronice esperando el siguiente ciclo, sin pedir nada. El Market Recovery feed de CME MDP 3.0 opera así en producción |
-| 3. Retorno sin intervención | Según Bronson et al. (HotOS 2021) y Huang et al. (OSDI 2022), sin sustaining effect no existe el estado metaestable. Delta‑state CRDTs (Almeida et al., JPDC 2018) garantizan que la conflation no altera el libro, lo que permite evitar la desconexión que actúa como trigger |
+| 1. Carga del origen constante | Jasper (2024‑2025) y DBO (SIGCOMM 2023) muestran que un overlay de proxies en la nube reparte la distribución sin multicast. arXiv 2606.00942 (2026) ubica la causa de la metaestabilidad en el trabajo de recuperación que compite con el camino principal, y en la propuesta ese trabajo no llega al origen |
+| 2. Recuperación acotada | El Market Recovery feed de CME MDP 3.0 opera en producción con snapshots en loop, donde el receptor se sincroniza esperando el siguiente ciclo. Isaacs, Alvaro et al. (HotOS 2025) aportan el método de simulación para verificarlo |
+| 3. Retorno sin intervención | Bronson et al. (HotOS 2021) y Huang et al. (OSDI 2022) establecen que sin sustaining effect no existe el estado metaestable, y arXiv 2510.03551 (2025) permite estimar el tiempo de recuperación. Yates et al. (2021) respaldan que la conflation reduce la staleness, y la cantidad absoluta por nivel que documenta Binance garantiza que no altera el libro |
 
 Refutación. La hipótesis cae si la carga del origen crece con el número de clientes desconectados, si el tiempo de recuperación crece con el número de clientes recuperándose a la vez, o si los propios relays entran en un estado metaestable al saturarse con las reconexiones de su región. Este último caso define el límite de clientes por relay, que forma parte del dimensionamiento de la arquitectura.
 
@@ -138,8 +138,8 @@ Los umbrales son una propuesta inicial y se fijan en el Entregable II.
 | Requisito | Cómo lo cumple |
 |---|---|
 | Caso real | Contrato documentado oficialmente por Binance, reportes del foro y evento del 10/10/2025 |
-| Base académica | Metastable failures (2021‑2026), reliable multicast, Jasper (2024‑2025) y delta‑CRDTs |
-| Brecha | Las tácticas actuales no resuelven el caso, y las soluciones estructurales asumen multicast |
+| Base académica | Metastable failures (2021‑2026), exchanges en la nube (CloudEx 2021, DBO 2023, Jasper 2024‑2025) y Age of Information (2021) |
+| Brecha | Las tácticas actuales protegen al servidor y no al cliente, y los exchanges en la nube optimizan equidad y no recuperación |
 | Es arquitectura | La hipótesis es una propiedad que surge de la topología, la separación de caminos y la ubicación del estado |
 | Hipótesis con mecanismo | Se deriva de la definición de sustaining effect |
 | Demostración con métricas | Las tres propiedades se miden en el POC |
@@ -162,7 +162,7 @@ Papers de 2025 y 2026 muestran que el ADL usado el 10/10/2025 cerró de más a l
 
 #### Base académica
 
-arXiv 2512.01112 (2025) analiza el evento en Hyperliquid y estima que el algoritmo de producción quitó entre 45 y 51,7 millones de USD de más a los traders ganadores. arXiv 2602.15182 (2026) modela el ADL como online learning y reporta un regret cercano a 50 % para producción frente a 2,6 % para el optimizado. arXiv 2603.15963 (2026) propone una asignación basada en riesgo sobre unos 2 mil millones de USD de ADL concentrados en minutos. En arquitectura, LMAX usa el journal de eventos del matching como fuente única de verdad, y DBSP (Budiu et al., VLDB 2023) formaliza el mantenimiento incremental de vistas sobre streams de cambios.
+arXiv 2512.01112 (2025) analiza el evento en Hyperliquid y estima que el algoritmo de producción quitó entre 45 y 51,7 millones de USD de más a los traders ganadores. arXiv 2602.15182 (2026) modela el ADL como online learning y reporta un regret cercano a 50 % para producción frente a 2,6 % para el optimizado. arXiv 2603.15963 (2026) propone una asignación basada en riesgo sobre unos 2 mil millones de USD de ADL concentrados en minutos. En arquitectura, arXiv 2606.01183 (2026) y arXiv 2309.04259 (2023) describen matching engines con sequencer y journal de eventos como fuente única de verdad, Overeem et al. (Journal of Systems and Software, 2021) caracterizan 19 sistemas event‑sourced de la industria, y DBSP (Budiu et al., VLDB 2023) formaliza el mantenimiento incremental de vistas sobre streams de cambios.
 
 #### Brecha
 
@@ -189,10 +189,10 @@ Matching ──► Journal secuenciado ──┬──► (hot path sigue sin es
 
 | Decisión de arquitectura | Qué hace | Fundamento |
 |---|---|---|
-| Journal del matching como fuente única de verdad | Todo cambio de posición es un evento secuenciado | Event sourcing en LMAX (Fowler, The LMAX Architecture) |
-| Proyección de riesgo separada del write path | El projector consume el journal de forma asíncrona, fuera del critical path del matching | CQRS |
+| Journal del matching como fuente única de verdad | Todo cambio de posición es un evento secuenciado | arXiv 2606.01183 (2026) y arXiv 2309.04259 (2023), sequencer con journal, y Overeem et al. (JSS 2021) |
+| Proyección de riesgo separada del write path | El projector consume el journal de forma asíncrona, fuera del critical path del matching | CQRS con event sourcing, en la variante snapshot‑centric de Hruzin y Lytvynov (2026) |
 | Índice mantenido incrementalmente | Cada trade actualiza el índice en O(log n), por lo que en el déficit solo se consulta | Incremental view maintenance, DBSP (VLDB 2023) |
-| Decisión versionada por número de secuencia | Cada decisión de ADL declara sobre qué prefijo del journal se calculó | Determinismo del state machine, que permite reproducir y auditar la decisión |
+| Decisión versionada por número de secuencia | Cada decisión de ADL declara sobre qué prefijo del journal se calculó | Determinismo de state machine replication, base de trabajos recientes como Chora (arXiv 2507.12792, 2025) |
 
 #### Hipótesis
 
@@ -208,8 +208,8 @@ Sustento de cada propiedad:
 | Propiedad | Se sustenta en |
 |---|---|
 | 1. Latencia independiente del número de posiciones | DBSP (Budiu et al., VLDB 2023) muestra que el mantenimiento incremental de una vista cuesta en proporción al cambio y no al tamaño de los datos |
-| 2. Matching sin impacto | En LMAX (Fowler, The LMAX Architecture) los consumidores del journal leen sin bloquear al productor. CQRS separa el modelo de escritura del de lectura |
-| 3. Decisión reproducible | El enfoque de state machine (Schneider, ACM Computing Surveys 1990) garantiza que el mismo prefijo del log produce el mismo estado |
+| 2. Matching sin impacto | En los diseños de arXiv 2309.04259 (2023) y arXiv 2606.01183 (2026) los consumidores del journal leen sin bloquear al sequencer. CQRS separa el modelo de escritura del de lectura |
+| 3. Decisión reproducible | En state machine replication el mismo prefijo del log produce el mismo estado, propiedad sobre la que se construye Chora (arXiv 2507.12792, 2025). Overeem et al. (2021) documentan sistemas de la industria donde el estado se reconstruye reproduciendo eventos |
 
 La necesidad de un ADL mejor la establecen arXiv 2512.01112, 2602.15182 y 2603.15963.
 
@@ -245,11 +245,11 @@ Un exchange escala dividiendo los pares en particiones, pero el saldo de un usua
 
 #### Base académica
 
-H‑Store (Stonebraker et al., VLDB 2007) muestra que una base de datos en memoria con un hilo por partición logra órdenes de magnitud más throughput siempre que las transacciones toquen una sola partición, porque las distribuidas son mucho más lentas. Es la misma estructura que LMAX y arXiv 2606.01183 (2026) usan para matching. Bailis et al. (VLDB 2015) demuestran que un invariante como saldo no negativo bajo retiros exige coordinación. Escrow (O'Neil, TODS 1986) y Homeostasis (Roy et al., SIGMOD 2015) reducen esa coordinación repartiendo el valor en reservas locales. E‑Store (VLDB 2014) y Squall (SIGMOD 2015) mueven datos calientes entre particiones en vivo.
+Lotus (Zhou, Yu, Graefe y Stonebraker, VLDB 2022) revisa la arquitectura de un hilo por partición de H‑Store y VoltDB y muestra que es imbatible cuando cada transacción toca una sola partición, pero que rinde muy mal con transacciones multi‑partición. arXiv 2606.01183 (2026) usa la misma estructura para matching, un libro por core. La ECOOP 2025 (Ensuring Convergence and Invariants Without Coordination) señala que mantener invariantes en sistemas replicados exige coordinación o tiene aplicabilidad limitada. El benchmark de SoftwareMill (2025) muestra que la contención en hot accounts degrada a PostgreSQL, y TigerBeetle implementa reservas de saldo como transferencias pendientes en dos fases. Fugue (VLDB 2025) estudia la migración en vivo de particiones con estado y encuentra que mover la partición más caliente es el caso más costoso.
 
 #### Brecha
 
-En un exchange el matching se particiona por par y el saldo por usuario, así que las dos claves de partición no coinciden. Los trabajos de H‑Store asumen una sola clave, y los de escrow no consideran la demanda concentrada de un listing, que agota las reservas de una partición en segundos.
+En un exchange el matching se particiona por par y el saldo por usuario, así que las dos claves de partición no coinciden. Lotus mejora las transacciones multi‑partición pero asume una sola clave, y los trabajos de invariantes sin coordinación no consideran la demanda concentrada de un listing, que agota las reservas de una partición en segundos.
 
 #### Arquitectura propuesta
 
@@ -262,17 +262,17 @@ PROPUESTA · particiones por par con escrow de saldos
                          ▲ transferencia de reservas, asíncrona y guiada por demanda
            ┌─────────────┼──────────────┐
 Gateway ─► Partición BTC   Partición ETH   Partición del listing
-           sequencer        sequencer       migración en vivo estilo Squall
+           sequencer        sequencer       migración en vivo pre‑copy    
            book + reservas  book + reservas reservas asignadas según demanda
    Una orden se valida contra la reserva local, sin salir de la partición.
 ```
 
 | Decisión de arquitectura | Qué hace | Fundamento |
 |---|---|---|
-| Partición por par con un sequencer por partición | Cada libro se procesa en un hilo sin locks | H‑Store, LMAX, arXiv 2606.01183 |
-| Saldo como escrow | El saldo del usuario se reparte en reservas por partición, cuya suma nunca supera el saldo | Escrow (O'Neil 1986) |
-| Transferencia de reservas guiada por demanda | Las reservas se mueven hacia las particiones donde el usuario opera más | Treaties de Homeostasis (SIGMOD 2015) |
-| Migración en vivo de pares calientes | Un par con demanda extrema se mueve a su propia partición sin detener el trading | Squall (SIGMOD 2015) y E‑Store (VLDB 2014) |
+| Partición por par con un sequencer por partición | Cada libro se procesa en un hilo sin locks | Lotus (VLDB 2022) y arXiv 2606.01183 (2026) |
+| Saldo como escrow | El saldo del usuario se reparte en reservas por partición, cuya suma nunca supera el saldo | Transferencias pendientes en dos fases de TigerBeetle (documentación vigente) y ECOOP 2025 |
+| Transferencia de reservas guiada por demanda | Las reservas se mueven hacia las particiones donde el usuario opera más | Diseño propio guiado por la demanda observada, evaluado en el POC |
+| Migración en vivo de pares calientes | Un par con demanda extrema se mueve a su propia partición sin detener el trading | Fugue (VLDB 2025), migración en vivo por pre‑copy iterativa |
 
 #### Hipótesis
 
@@ -281,15 +281,15 @@ La arquitectura con escrow cumple tres propiedades:
 2. El costo de coordinación es proporcional a la frecuencia de transferencias de reservas y no al número de órdenes.
 3. El invariante saldo ≥ 0 se cumple siempre, incluso durante transferencias y migraciones.
 
-Mecanismo. Bailis et al. prueban que el invariante de saldo exige coordinación, y el escrow la concentra en la transferencia de reservas, que ocurre solo cuando una reserva se agota. La propiedad 3 sale de que la suma de reservas nunca supera el saldo global, condición que la transferencia preserva por construcción.
+Mecanismo. El invariante de saldo exige coordinación, como recuerda la ECOOP 2025, y el escrow la concentra en la transferencia de reservas, que ocurre solo cuando una reserva se agota. La propiedad 3 sale de que la suma de reservas nunca supera el saldo global, condición que la transferencia preserva por construcción.
 
 Sustento de cada propiedad:
 
 | Propiedad | Se sustenta en |
 |---|---|
-| 1. Admisión sin coordinación | H‑Store (Stonebraker et al., VLDB 2007) muestra que las transacciones de una sola partición no necesitan coordinación. Escrow (O'Neil, TODS 1986) permite descontar de una reserva local sin bloquear el total |
-| 2. Coordinación solo por transferencia | Homeostasis (Roy et al., SIGMOD 2015) solo comunica nodos cuando se viola un treaty local |
-| 3. Saldo nunca negativo | Bailis et al. (VLDB 2015) prueban que este invariante exige coordinación, y escrow la concentra en la transferencia, manteniendo la suma de reservas menor o igual al saldo |
+| 1. Admisión sin coordinación | Lotus (VLDB 2022) muestra que en un diseño de un hilo por partición las transacciones locales son las rápidas y las multi‑partición las lentas, por lo que volver locales las órdenes es la palanca principal. Las transferencias pendientes de TigerBeetle permiten reservar saldo sin bloquear el total |
+| 2. Coordinación solo por transferencia | La ECOOP 2025 busca mantener invariantes evitando coordinación, y aquí la coordinación queda reducida a las transferencias de reservas |
+| 3. Saldo nunca negativo | Según la ECOOP 2025 este tipo de invariante requiere coordinación, que aquí se concentra en la transferencia, manteniendo la suma de reservas menor o igual al saldo |
 
 Refutación. La hipótesis cae si, durante un listing, las transferencias de reservas se vuelven tan frecuentes como las órdenes, porque la coordinación volvería a ser por orden. Ese punto define el límite de concentración que la arquitectura soporta.
 
@@ -330,9 +330,10 @@ Mini exchange con 8 particiones. Se varía el porcentaje de usuarios multi‑par
 ## Fuentes
 
 - Enunciado: Arqui2026.12- Lab 13-15.docx
-- Metaestabilidad: [Isaacs, Alvaro et al., HotOS 2025](https://sigops.org/s/conferences/hotos/2025/papers/hotos25-106.pdf), [arXiv 2510.03551](https://arxiv.org/abs/2510.03551), [arXiv 2606.00942](https://arxiv.org/abs/2606.00942), [Farahbakhsh, Haeberlen et al., HotNets 2025](https://haeberlen.cis.upenn.edu/papers/metastability-hotnets2025.pdf), Bronson et al. HotOS 2021, Huang et al. OSDI 2022
+- Todas las fuentes son de 2021 a 2026, o documentación vigente de sistemas en producción (Binance, CME, TigerBeetle).
+- Metaestabilidad: Bronson et al. HotOS 2021, Huang et al. OSDI 2022 ([resumen en ;login:](https://www.usenix.org/publications/loginonline/metastable-failures-wild)), [Isaacs, Alvaro et al., HotOS 2025](https://sigops.org/s/conferences/hotos/2025/papers/hotos25-106.pdf), [arXiv 2510.03551](https://arxiv.org/abs/2510.03551), [Farahbakhsh, Haeberlen et al., HotNets 2025](https://haeberlen.cis.upenn.edu/papers/metastability-hotnets2025.pdf), [arXiv 2606.00942](https://arxiv.org/abs/2606.00942), [RetryGuard, arXiv 2511.23278](https://arxiv.org/abs/2511.23278), Rajomon NSDI 2025
 - Market data Binance: [How to manage a local order book correctly](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly), [Binance WebSocket Market Streams, límites y bans](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Connect), [Foro, 1006 durante trading intenso](https://dev.binance.vision/t/websocket-keeps-disconnecting-with-1006-error-during-heavy-trading/35472), [Foro, depth websockets cerrándose juntos](https://dev.binance.vision/t/depth-websockets-keep-closing-1006-but-not-clientside/2428), [Foro, reconexión del order book local](https://dev.binance.vision/t/local-orderbook-binance-spot-websocket-disconnection/22050)
-- Recientes: [Jasper, arXiv 2402.09527](https://arxiv.org/abs/2402.09527), [RetryGuard, arXiv 2511.23278](https://arxiv.org/abs/2511.23278), Rajomon (NSDI 2025), [Metastable Failures in the Wild](https://www.usenix.org/publications/loginonline/metastable-failures-wild)
-- Arquitectura C: [SRM, Floyd et al. SIGCOMM 1995](https://www.icir.org/floyd/srm.html), RMTP (Paul et al., IEEE JSAC 1997), Digital Fountain y data carousel (Byers et al., SIGCOMM 1998), [Delta‑state CRDTs, arXiv 1603.01529](https://arxiv.org/abs/1603.01529), [CME MDP 3.0 Recovery Services](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457325847/MDP+3.0+-+Recovery+Services), [CME conflated feed BrokerTec](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457672459/MDP+3.0+-+MBP+and+MBOLD+Market+Recovery+for+the+Conflated+UDP+Market+Data+Group+for+BrokerTec)
-- ADL: [DBSP, VLDB 2023](https://www.vldb.org/pvldb/vol16/p1601-budiu.pdf), [Fowler, CQRS](https://martinfowler.com/bliki/CQRS.html), [arXiv 2512.01112](https://arxiv.org/abs/2512.01112), [arXiv 2602.15182](https://arxiv.org/abs/2602.15182), [arXiv 2603.15963](https://arxiv.org/abs/2603.15963)
-- Particionado y escrow: [E‑Store, VLDB 2014](https://db.cs.cmu.edu/wordpress/wp-content/uploads/2015/01/E_Store.pdf), [Squall, SIGMOD 2015](https://www.doi.org/10.1145/2723372.2723726), [O'Neil, Escrow Transactional Method](https://www.cs.umb.edu/~poneil/EscrowTM.pdf), [Homeostasis, SIGMOD 2015](https://infoscience.epfl.ch/record/219208/files/final_camera_ready.pdf), Bailis et al. VLDB 2015, Stonebraker et al. VLDB 2007, [arXiv 2606.01183](https://arxiv.org/abs/2606.01183)
+- Exchanges en la nube: CloudEx HotOS 2021, [DBO, SIGCOMM 2023](https://www.microsoft.com/en-us/research/publication/dbo-fairness-for-cloud-hosted-financial-exchanges/), [Jasper, arXiv 2402.09527](https://arxiv.org/abs/2402.09527)
+- Arquitectura de la Idea 1: [Age of Information, Yates et al. IEEE JSAC 2021](https://arxiv.org/abs/2007.08564), [CME MDP 3.0 Recovery Services](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457325847/MDP+3.0+-+Recovery+Services), [CME conflated feed BrokerTec](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457672459/MDP+3.0+-+MBP+and+MBOLD+Market+Recovery+for+the+Conflated+UDP+Market+Data+Group+for+BrokerTec)
+- ADL y risk engine: [arXiv 2512.01112](https://arxiv.org/abs/2512.01112), [arXiv 2602.15182](https://arxiv.org/abs/2602.15182), [arXiv 2603.15963](https://arxiv.org/abs/2603.15963), [DBSP, VLDB 2023](https://www.vldb.org/pvldb/vol16/p1601-budiu.pdf), [Overeem et al., JSS 2021](https://arxiv.org/abs/2104.01146), [Hruzin y Lytvynov 2026](https://scinews.kpi.ua/article/view/350992), [Chora, arXiv 2507.12792](https://arxiv.org/abs/2507.12792), [arXiv 2309.04259](https://arxiv.org/abs/2309.04259), [arXiv 2606.01183](https://arxiv.org/abs/2606.01183)
+- Particionado y escrow: [Lotus, VLDB 2022](https://www.vldb.org/pvldb/vol15/p2939-zhou.pdf), [Fugue, VLDB 2025](https://www.vldb.org/pvldb/vol19/p3288-zhang.pdf), [ECOOP 2025, Ensuring Convergence and Invariants Without Coordination](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2025.4), [TigerBeetle docs](https://docs.tigerbeetle.com/), [SoftwareMill, TigerBeetle vs PostgreSQL](https://softwaremill.com/tigetbeetle-vs-postgresql-performance-benchmark-harness-cloud-tests)
