@@ -57,6 +57,18 @@ Bronson et al. (HotOS 2021) definen la falla metaestable como un sistema que ent
 
 La literatura de metastable failures estudia storage, RPC y microservicios, y sus soluciones son sobre todo tácticas, como load shedding, control de retries y admission control. Huang et al. reportan load shedding en más de 55 % de las recuperaciones estudiadas. Esas tácticas protegen al servidor descartando trabajo, pero en market data un resync descartado deja al cliente con el libro inválido. Por otro lado, CloudEx, DBO y Jasper optimizan la equidad de entrega hacia cientos de market makers y no la recuperación de millones de clientes retail tras una desconexión. Falta una arquitectura de distribución por WebSocket donde la recuperación no compita con el camino principal.
 
+#### Estado del arte y qué queda abierto
+
+| Enfoque actual | Quién lo usa | Qué cuesta recuperar a un cliente | Qué pasa en un pico |
+|---|---|---|---|
+| Snapshot por REST tras reconectar | Binance | Un libro completo, pedido al origen | El costo crece con los desconectados y choca con el rate limit y los bans |
+| Snapshot por WebSocket al suscribirse | Kraken WebSocket v2, con checksum CRC32 | Un libro completo por el mismo canal | Elimina el REST, pero cada reconexión sigue costando un libro completo |
+| Resume por número de secuencia | Ably, con ventana de 2 minutos, y guías de practicantes | Los mensajes perdidos | La ventana es finita, y con 10x mensajes cubre menos tiempo, así que más clientes quedan fuera y caen a resync completo |
+| Backoff, jitter, admisión escalonada y overload control | RetryGuard y Rajomon (2025), guías de practicantes | Lo mismo, repartido en el tiempo | No reduce el trabajo total de recuperación |
+| Overlay de proxies en la nube | Jasper (2024‑2025) y DBO (2023) | Fuera de su alcance | Optimizan la equidad de entrega, no la recuperación |
+
+Relays, snapshots y conflation ya existen en la industria, por lo que no son la contribución. En la búsqueda realizada no apareció ningún trabajo que analice estos diseños de recuperación con el marco de metastable failures, ni uno que acote el costo de recuperación sin que dependa de la tasa de mensajes. La pieza nueva es el resume por estado, descrito en la arquitectura propuesta. Antes de cerrar la idea falta revisar la documentación de OKX, Bybit y Coinbase, y buscar en Google Scholar "order book resynchronization".
+
 #### Arquitectura propuesta
 
 ```
@@ -77,7 +89,7 @@ PROPUESTA · distribución jerárquica por push con recuperación local
                 libro local    libro local                     su copia del libro
                      │ conflation por cliente lento
                      ▼
-                 Clientes ── reconexión ──► relay local (nunca el origen)
+                 Clientes ── reconexión con último seq ──► relay: solo niveles cambiados desde ese seq
    El tráfico de recuperación nunca sube al origen.
 ```
 
@@ -87,6 +99,7 @@ PROPUESTA · distribución jerárquica por push con recuperación local
 | Tier de edge relays como overlay sobre unicast | Cada región tiene un relay con su propia réplica del libro que atiende las reconexiones de sus clientes | Jasper (arXiv 2402.09527, 2024‑2025) y DBO (SIGCOMM 2023), overlays de proxies en la nube para market data de exchanges |
 | Snapshot cíclico dentro del feed | El libro completo circula en loop, así un relay o cliente desincronizado se recupera sin hacer requests | Market Recovery feed de CME MDP 3.0 (documentación vigente), que sincroniza el snapshot con el incremental mediante LastMsgSeqNumProcessed |
 | Conflation por cliente en el relay | Si la cola de un cliente lento crece, el relay fusiona los deltas pendientes y envía el último valor por nivel de precio, por lo que la conexión no se corta | Age of Information (Yates et al., IEEE JSAC 2021), donde reemplazar la actualización pendiente por la más reciente reduce la antigüedad. Binance documenta que cada delta trae la cantidad absoluta del nivel, por lo que fusionar deltas no altera el libro final. CME opera un feed conflated para BrokerTec |
+| Resume por estado en el relay (pieza nueva) | El relay guarda, para cada nivel de precio, el número de secuencia de su último cambio. Un cliente que vuelve con su último seq recibe solo los niveles modificados desde entonces con su valor actual, en lugar de los mensajes perdidos o el libro completo | La cantidad absoluta por nivel que documenta Binance hace que el valor actual reemplace a todos los cambios intermedios. Age of Information (2021) respalda que enviar el valor más reciente reduce la staleness |
 
 El estilo resultante es un publish‑subscribe jerárquico basado en push, con el estado del libro replicado en los relays bajo consistencia eventual.
 
@@ -94,24 +107,24 @@ El estilo resultante es un publish‑subscribe jerárquico basado en push, con e
 
 La arquitectura propuesta no tiene estado metaestable. Bajo un pico de 10x mensajes con desconexiones correlacionadas cumple tres propiedades:
 1. La carga del origen se mantiene constante sin importar cuántos clientes se desconecten.
-2. El tiempo de recuperación de un cliente está acotado por el periodo del snapshot cíclico más un salto al relay, y no depende de cuántos clientes se recuperan a la vez.
+2. El costo de recuperar a un cliente está acotado por el número de niveles de precio distintos que cambiaron durante su desconexión, que nunca supera la profundidad del libro, y no depende de la tasa de mensajes. Por lo tanto un pico no empuja a los clientes fuera de una ventana de recuperación, como ocurre con el resume por log.
 3. Al retirar el pico, el sistema vuelve al estado sano en un tiempo acotado y sin intervención manual.
 
-Mecanismo. Una falla metaestable necesita que el trabajo de recuperación compita por la misma capacidad que evita nuevas fallas. En la arquitectura propuesta ese loop no se cierra en el origen, porque ningún tráfico de recuperación sube hasta él y el snapshot cíclico tiene tasa fija. Dentro de cada relay el trabajo de recuperación queda limitado a sus propios clientes, y la conflation evita que un cliente lento llegue a desconectarse, con lo que se elimina el trigger en su origen.
+Mecanismo. Una falla metaestable necesita que el trabajo de recuperación compita por la misma capacidad que evita nuevas fallas. En la arquitectura propuesta ese loop no se cierra en el origen, porque ningún tráfico de recuperación sube hasta él y el snapshot cíclico tiene tasa fija. Dentro de cada relay el trabajo de recuperación queda limitado a sus propios clientes, y la conflation evita que un cliente lento llegue a desconectarse, con lo que se elimina el trigger en su origen. En el resume por log el costo es proporcional a los mensajes perdidos, que se multiplican en el pico, mientras que en el resume por estado muchos cambios sobre el mismo nivel se reducen a un solo valor.
 
 Sustento de cada propiedad:
 
 | Propiedad | Se sustenta en |
 |---|---|
 | 1. Carga del origen constante | Jasper (2024‑2025) y DBO (SIGCOMM 2023) muestran que un overlay de proxies en la nube reparte la distribución sin multicast. arXiv 2606.00942 (2026) ubica la causa de la metaestabilidad en el trabajo de recuperación que compite con el camino principal, y en la propuesta ese trabajo no llega al origen |
-| 2. Recuperación acotada | El Market Recovery feed de CME MDP 3.0 opera en producción con snapshots en loop, donde el receptor se sincroniza esperando el siguiente ciclo. Isaacs, Alvaro et al. (HotOS 2025) aportan el método de simulación para verificarlo |
+| 2. Recuperación acotada por niveles y no por mensajes | La cantidad absoluta por nivel que documenta Binance permite reemplazar los cambios intermedios por el valor actual. Yates et al. (2021) muestran que enviar la actualización más reciente minimiza la antigüedad. El Market Recovery feed de CME MDP 3.0 cubre a los clientes que vuelven sin seq válido |
 | 3. Retorno sin intervención | Bronson et al. (HotOS 2021) y Huang et al. (OSDI 2022) establecen que sin sustaining effect no existe el estado metaestable, y arXiv 2510.03551 (2025) permite estimar el tiempo de recuperación. Yates et al. (2021) respaldan que la conflation reduce la staleness, y la cantidad absoluta por nivel que documenta Binance garantiza que no altera el libro |
 
-Refutación. La hipótesis cae si la carga del origen crece con el número de clientes desconectados, si el tiempo de recuperación crece con el número de clientes recuperándose a la vez, o si los propios relays entran en un estado metaestable al saturarse con las reconexiones de su región. Este último caso define el límite de clientes por relay, que forma parte del dimensionamiento de la arquitectura.
+Refutación. La hipótesis cae si la carga del origen crece con el número de clientes desconectados, si el tiempo de recuperación crece con el número de clientes recuperándose a la vez, o si los propios relays entran en un estado metaestable al saturarse con las reconexiones de su región. Este último caso define el límite de clientes por relay, que forma parte del dimensionamiento de la arquitectura. También cae si, durante el pico, el resume por log del estado del arte no degrada a resync completo, porque entonces la pieza nueva no aportaría.
 
 #### Cómo se demuestra
 
-Las tres propiedades se derivan primero de forma analítica a partir de la estructura, y luego se verifican con un POC de la arquitectura (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico de mensajes con desconexiones correlacionadas, lo retira y mide carga del origen frente al número de desconectados, tiempo de recuperación por cliente, staleness p99 y tiempo hasta el estado sano. El contrato público de Binance se reproduce solo como línea de referencia para cuantificar la mejora.
+Las tres propiedades se derivan primero de forma analítica a partir de la estructura, y luego se verifican con un POC de la arquitectura (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico de mensajes con desconexiones correlacionadas, lo retira y mide carga del origen frente al número de desconectados, tiempo de recuperación por cliente, staleness p99 y tiempo hasta el estado sano. Como líneas de referencia del estado del arte se reproducen tres contratos públicos (snapshot por REST de Binance, snapshot por WebSocket de Kraken y resume por log con ventana estilo Ably), lo que permite mostrar en qué mejora la propuesta al SOTA.
 
 #### Métricas de éxito
 
@@ -122,6 +135,8 @@ Los umbrales son una propuesta inicial y se fijan en el Entregable II.
 | Carga del origen frente a clientes desconectados | Mensajes por segundo y CPU del origen con 0 %, 10 %, 30 % y 50 % de clientes desconectados | Variación menor a 5 % entre 0 % y 50 % |
 | Tiempo de recuperación por cliente | Desde la reconexión hasta tener un libro válido, p99 | Menor o igual al periodo del snapshot más el RTT al relay, sin importar cuántos se recuperan a la vez |
 | Tiempo hasta el estado sano | Desde que termina el pico hasta que 99 % de los clientes tiene libro válido | Acotado y sin intervención manual |
+| Resyncs completos por reconexión | Porcentaje de reconexiones que terminan en un libro completo, durante el pico | Cercano a 0 %, frente al resume por log que debería subir con la tasa |
+| Bytes por recuperación frente a la tasa de mensajes | Tamaño de la respuesta de resume con 1x, 5x y 10x mensajes | Constante o decreciente con la tasa |
 | Staleness p99 durante el pico | Diferencia entre el precio que ve el cliente y el del origen | Menor a 1 s |
 | Capacidad por relay | Clientes por relay antes de que el relay se sature | Valor medido que define el dimensionamiento |
 
@@ -143,6 +158,7 @@ Los umbrales son una propuesta inicial y se fijan en el Entregable II.
 | Es arquitectura | La hipótesis es una propiedad que surge de la topología, la separación de caminos y la ubicación del estado |
 | Hipótesis con mecanismo | Se deriva de la definición de sustaining effect |
 | Demostración con métricas | Las tres propiedades se miden en el POC |
+| Mejora el SOTA | El resume por estado acota la recuperación por niveles y no por mensajes, algo que Binance, Kraken y el resume por log no hacen |
 | POC en 12 h | Origen, relays y clientes sintéticos en contenedores, sin data privada |
 
 ---
@@ -333,6 +349,7 @@ Mini exchange con 8 particiones. Se varía el porcentaje de usuarios multi‑par
 - Todas las fuentes son de 2021 a 2026, o documentación vigente de sistemas en producción (Binance, CME, TigerBeetle).
 - Metaestabilidad: Bronson et al. HotOS 2021, Huang et al. OSDI 2022 ([resumen en ;login:](https://www.usenix.org/publications/loginonline/metastable-failures-wild)), [Isaacs, Alvaro et al., HotOS 2025](https://sigops.org/s/conferences/hotos/2025/papers/hotos25-106.pdf), [arXiv 2510.03551](https://arxiv.org/abs/2510.03551), [Farahbakhsh, Haeberlen et al., HotNets 2025](https://haeberlen.cis.upenn.edu/papers/metastability-hotnets2025.pdf), [arXiv 2606.00942](https://arxiv.org/abs/2606.00942), [RetryGuard, arXiv 2511.23278](https://arxiv.org/abs/2511.23278), Rajomon NSDI 2025
 - Market data Binance: [How to manage a local order book correctly](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly), [Binance WebSocket Market Streams, límites y bans](https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Connect), [Foro, 1006 durante trading intenso](https://dev.binance.vision/t/websocket-keeps-disconnecting-with-1006-error-during-heavy-trading/35472), [Foro, depth websockets cerrándose juntos](https://dev.binance.vision/t/depth-websockets-keep-closing-1006-but-not-clientside/2428), [Foro, reconexión del order book local](https://dev.binance.vision/t/local-orderbook-binance-spot-websocket-disconnection/22050)
+- Estado del arte en recuperación: [Kraken, reconexión WebSocket](https://docs.kraken.com/exchange/guides/websockets/reconnection), [Kraken, book v2 y checksum](https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book), [Ably, connection state y recovery](https://ably.com/docs/connect/states), [websocket.org, guía de reconexión](https://websocket.org/guides/reconnection/)
 - Exchanges en la nube: CloudEx HotOS 2021, [DBO, SIGCOMM 2023](https://www.microsoft.com/en-us/research/publication/dbo-fairness-for-cloud-hosted-financial-exchanges/), [Jasper, arXiv 2402.09527](https://arxiv.org/abs/2402.09527)
 - Arquitectura de la Idea 1: [Age of Information, Yates et al. IEEE JSAC 2021](https://arxiv.org/abs/2007.08564), [CME MDP 3.0 Recovery Services](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457325847/MDP+3.0+-+Recovery+Services), [CME conflated feed BrokerTec](https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457672459/MDP+3.0+-+MBP+and+MBOLD+Market+Recovery+for+the+Conflated+UDP+Market+Data+Group+for+BrokerTec)
 - ADL y risk engine: [arXiv 2512.01112](https://arxiv.org/abs/2512.01112), [arXiv 2602.15182](https://arxiv.org/abs/2602.15182), [arXiv 2603.15963](https://arxiv.org/abs/2603.15963), [DBSP, VLDB 2023](https://www.vldb.org/pvldb/vol16/p1601-budiu.pdf), [Overeem et al., JSS 2021](https://arxiv.org/abs/2104.01146), [Hruzin y Lytvynov 2026](https://scinews.kpi.ua/article/view/350992), [Chora, arXiv 2507.12792](https://arxiv.org/abs/2507.12792), [arXiv 2309.04259](https://arxiv.org/abs/2309.04259), [arXiv 2606.01183](https://arxiv.org/abs/2606.01183)
