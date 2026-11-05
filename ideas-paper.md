@@ -29,9 +29,9 @@ Eje común: arquitectura de exchanges (Binance, Hyperliquid). Cada idea parte de
 
 #### Título propuesto
 
-Propuesta de Mejora de la Disponibilidad del Market Data de Binance ante Tormentas de Reconexión mediante la Arquitectura RelayBook con Resume por Estado
+Propuesta de Mejora de la Disponibilidad del Market Data de Binance ante Reconnection Storms mediante la Arquitectura RelayBook con State‑Based Resume
 
-El título dice tormentas de reconexión y no fallas metaestables, porque las tormentas están documentadas y la metaestabilidad del contrato de Binance es lo que el paper demuestra por simulación.
+El título dice reconnection storms y no fallas metaestables, porque los reconnection storms están documentados y la metaestabilidad del contrato de Binance es lo que el paper demuestra por simulación.
 
 #### En una frase
 
@@ -105,7 +105,7 @@ En español: distribución de market data, libro de órdenes, resincronización,
 |---|---|---|---|
 | Snapshot por REST tras reconectar | Binance | Un libro completo, pedido al origen | Crece con los desconectados y choca con rate limit y bans |
 | Snapshot por WebSocket al suscribirse | Kraken WebSocket v2 (con checksum CRC32), Hyperliquid L4 | Un libro completo por el mismo canal | Elimina el REST, pero cada reconexión sigue costando un libro completo |
-| Resume por número de secuencia | Ably, con ventana de 2 minutos | Los mensajes perdidos | Con 10x mensajes la ventana cubre menos tiempo y más clientes caen a resync completo |
+| Resume por sequence number | Ably, con ventana de 2 minutos | Los mensajes perdidos | Con 10x mensajes la ventana cubre menos tiempo y más clientes caen a resync completo |
 | Snapshot cíclico en canal separado | CME MDP 3.0, Market Recovery feed | Esperar el siguiente ciclo | Funciona sobre multicast en redes privadas, no sobre WebSocket por internet |
 
 #### 5. Brecha
@@ -124,7 +124,7 @@ Matching ──► Publisher ──► WebSocket deltas ──► Cliente
                               REST /depth snapshot (rate limit, 429, ban)
    La recuperación sube al origen, y su costo crece con los clientes desconectados.
 
-PROPUESTA · RelayBook, relays con resume por estado
+PROPUESTA · RelayBook, relays con state‑based resume
                  ┌─────────────── Origen ────────────────┐
                  │ Matching ──► Feed secuenciado         │
                  │              deltas + snapshot cíclico │  tasa fija, no depende de N
@@ -142,7 +142,7 @@ PROPUESTA · RelayBook, relays con resume por estado
 |---|---|---|
 | Separar el camino de distribución del de recuperación | El origen emite un feed de tasa fija y la recuperación ocurre en los relays | arXiv 2606.00942 (2026), que ubica el problema en el trabajo de recuperación que compite con el camino principal |
 | Tier de relays como overlay sobre unicast | Cada región tiene un relay con su réplica del libro | Onyx / Jasper (2024‑2025) y DBO (SIGCOMM 2023), overlays en la nube para exchanges |
-| Resume por estado (pieza nueva) | El relay guarda por nivel el seq de su último cambio, y un cliente que vuelve recibe solo los niveles modificados desde su último seq, con su valor actual | La cantidad absoluta por nivel que documenta Binance hace que el valor actual reemplace a todos los cambios intermedios |
+| State‑based resume (pieza nueva) | El relay guarda por nivel el seq de su último cambio, y un cliente que vuelve recibe solo los niveles modificados desde su último seq, con su valor actual | La cantidad absoluta por nivel que documenta Binance hace que el valor actual reemplace a todos los cambios intermedios |
 | Conflation por cliente lento | Si la cola de un cliente crece, el relay fusiona los deltas pendientes y envía el último valor por nivel, por lo que la conexión no se corta | La misma propiedad de cantidad absoluta por nivel. CME opera un feed conflated para BrokerTec |
 | Snapshot cíclico en el feed | Cubre a los relays o clientes que vuelven sin seq válido | Market Recovery feed de CME MDP 3.0 |
 
@@ -153,7 +153,7 @@ La hipótesis tiene dos partes. La primera es que el contrato público de Binanc
 2. El costo de recuperar a un cliente está acotado por el número de niveles distintos que cambiaron durante su desconexión, que nunca supera la profundidad del libro, y no depende de la tasa de mensajes.
 3. Al retirar el pico, el sistema vuelve al estado sano en un tiempo acotado y sin intervención manual.
 
-Mecanismo. Una falla metaestable necesita que el trabajo de recuperación compita por la capacidad que evita nuevas fallas. En la propuesta ese trabajo nunca llega al origen, y en el relay su costo no crece con la tasa de mensajes, porque muchos cambios sobre el mismo nivel se reducen a un solo valor. En el resume por log, en cambio, el costo es proporcional a los mensajes perdidos, que se multiplican en el pico y empujan a los clientes fuera de la ventana de recuperación. La conflation evita además que un cliente lento llegue a desconectarse, lo que elimina el trigger.
+Mecanismo. Una falla metaestable necesita que el trabajo de recuperación compita por la capacidad que evita nuevas fallas. En la propuesta ese trabajo nunca llega al origen, y en el relay su costo no crece con la tasa de mensajes, porque muchos cambios sobre el mismo nivel se reducen a un solo valor. En el log‑based resume, en cambio, el costo es proporcional a los mensajes perdidos, que se multiplican en el pico y empujan a los clientes fuera de la ventana de recuperación. La conflation evita además que un cliente lento llegue a desconectarse, lo que elimina el trigger.
 
 Sustento de cada propiedad:
 
@@ -163,11 +163,11 @@ Sustento de cada propiedad:
 | 2. Recuperación acotada por niveles | Contrato documentado de Binance con cantidad absoluta por nivel. La medición empírica de mensajes frente a niveles distintos del Entregable I cuantifica el ahorro |
 | 3. Retorno sin intervención | Isaacs, Alvaro et al. (HotOS 2025) y Farahbakhsh et al. (HotNets 2025) caracterizan la metaestabilidad por la existencia de un loop de sostenimiento, ausente en la propuesta. arXiv 2510.03551 (2025) permite estimar el tiempo de recuperación |
 
-Refutación. La hipótesis cae si la carga del origen crece con los clientes desconectados, si el costo de recuperación crece con la tasa de mensajes, si los relays se saturan con las reconexiones de su región, o si durante el pico el resume por log no degrada a resync completo, porque entonces la pieza nueva no aportaría.
+Refutación. La hipótesis cae si la carga del origen crece con los clientes desconectados, si el costo de recuperación crece con la tasa de mensajes, si los relays se saturan con las reconexiones de su región, o si durante el pico el log‑based resume no degrada a resync completo, porque entonces la pieza nueva no aportaría.
 
 #### Cómo se demuestra
 
-Las tres propiedades se derivan primero de forma analítica y luego se verifican con un POC (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico con desconexiones correlacionadas, lo retira y mide cada métrica. Como líneas de referencia del estado de la práctica se reproducen tres contratos públicos (snapshot por REST de Binance, snapshot por WebSocket de Kraken y resume por log estilo Ably).
+Las tres propiedades se derivan primero de forma analítica y luego se verifican con un POC (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico con desconexiones correlacionadas, lo retira y mide cada métrica. Como líneas de referencia del estado de la práctica se reproducen tres contratos públicos (snapshot por REST de Binance, snapshot por WebSocket de Kraken y log‑based resume estilo Ably).
 
 #### Datos para el POC
 
@@ -177,7 +177,7 @@ Las tres propiedades se derivan primero de forma analítica y luego se verifican
 | Tardis.dev, `incremental_book_L2` | Histórico de los mismos cambios | Primer día de cada mes gratis, el resto de pago |
 | data.binance.vision | Trades y `bookTicker` históricos, sin cambios completos del libro | Gratis |
 
-El tráfico es real, grabado y reproducido a 1x, 5x y 10x, y lo simulado son los clientes, sus redes y las desconexiones. Como primera medición para el Entregable I se graba el stream real y se calcula la razón entre mensajes recibidos y niveles distintos modificados por ventana de tiempo, que es el factor de ahorro del resume por estado.
+El tráfico es real, grabado y reproducido a 1x, 5x y 10x, y lo simulado son los clientes, sus redes y las desconexiones. Como primera medición para el Entregable I se graba el stream real y se calcula la razón entre mensajes recibidos y niveles distintos modificados por ventana de tiempo, que es el factor de ahorro del state‑based resume.
 
 #### Métricas de éxito
 
@@ -186,7 +186,7 @@ Los umbrales son una propuesta inicial y se fijan en el Entregable II.
 | Métrica | Cómo se mide | Criterio de éxito |
 |---|---|---|
 | Carga del origen frente a clientes desconectados | Mensajes por segundo y CPU del origen con 0 %, 10 %, 30 % y 50 % de desconectados | Variación menor a 5 % |
-| Resyncs completos por reconexión | Porcentaje de reconexiones que terminan en libro completo durante el pico | Cercano a 0 %, frente al resume por log que debería subir con la tasa |
+| Resyncs completos por reconexión | Porcentaje de reconexiones que terminan en libro completo durante el pico | Cercano a 0 %, frente al log‑based resume que debería subir con la tasa |
 | Bytes por recuperación frente a la tasa | Tamaño de la respuesta de resume con 1x, 5x y 10x mensajes | Constante o decreciente con la tasa |
 | Tiempo hasta el estado sano | Desde que termina el pico hasta que 99 % de los clientes tiene libro válido | Acotado y sin intervención manual |
 | Staleness p99 durante el pico | Diferencia entre el precio que ve el cliente y el del origen | Menor a 1 s |
