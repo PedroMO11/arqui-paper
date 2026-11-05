@@ -65,6 +65,21 @@ Los exchanges cripto distribuyen market data a millones de clientes retail y bot
 | L2 (market by price) | Todos los niveles de precio con la cantidad total en cada uno, sumando las órdenes de ese precio | Stream `depth`, usado en este paper |
 | L3 (market by order) | Cada orden individual con su identificador | Binance no lo publica. Kraken y Hyperliquid ofrecen feeds por orden |
 
+El término nivel tiene dos usos. Un nivel de precio es una fila del libro, un precio con su cantidad total, mientras que L1, L2 y L3 indican cuánto detalle del libro se envía. Elegir el nivel de detalle es la primera de varias optimizaciones que reducen el volumen de market data:
+
+| Optimización | Qué reduce | En Binance |
+|---|---|---|
+| Agregación por precio (L3 a L2) | Muchas órdenes de un mismo precio viajan como una sola cantidad | Stream `depth` |
+| Truncar profundidad | Solo los N mejores niveles | `@depth5`, `@depth10`, `@depth20` |
+| Deltas en lugar de snapshots | Solo los niveles que cambiaron | Diff depth stream |
+| Ventana de tiempo | Los cambios de 100 ms o 1 s viajan juntos y un nivel repetido conserva solo su último valor | `@depth@100ms` y `@depth` |
+| Cantidad absoluta por nivel | Un mensaje repetido o tardío reemplaza y no suma | Todos los deltas |
+| Compresión del transporte | Bytes por mensaje | permessage‑deflate en WebSocket, FAST y SBE en CME |
+| Conflation por cliente | Cola pendiente de un cliente lento | No lo aplica, RelayBook sí |
+| State‑based resume | Costo de recuperar a un cliente tras una desconexión | No lo aplica, es la pieza nueva de RelayBook |
+
+Las seis primeras optimizaciones actúan sobre el stream normal y ninguna sobre la recuperación, donde Binance vuelve a enviar el libro completo. RelayBook lleva la idea de la ventana de tiempo, conservar el último valor por nivel, al momento de recuperar. Como `@depth@100ms` ya agrupa los cambios cada 100 ms, la razón entre mensajes y niveles distintos se mide sobre ventanas de desconexión de 5, 30 y 60 segundos, que abarcan cientos de mensajes.
+
 En L2 el exchange envía un snapshot inicial y luego deltas por nivel con la cantidad absoluta resultante, donde una cantidad 0 elimina el nivel. Cada delta trae números de secuencia, y si el cliente detecta un salto debe resincronizar. La forma de resincronizar define cuánto trabajo cae sobre el servidor cuando muchos clientes fallan a la vez, y ese trabajo es el que puede sostener una falla metaestable, entendida como un estado degradado que persiste después de que desaparece el trigger porque el trabajo de recuperación consume la capacidad que evitaría nuevas fallas.
 
 #### 2. Keywords
