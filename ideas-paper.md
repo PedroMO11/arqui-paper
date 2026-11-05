@@ -209,6 +209,22 @@ El aporte del paper son decisiones de arquitectura y no un algoritmo. Cada propi
 | Atributos de calidad | Disponibilidad bajo picos, escalabilidad en número de clientes y frescura del dato (staleness) |
 | Tácticas | Replicación de estado, colas acotadas con conflation, eliminación de contención en el origen y degradación controlada por cliente lento |
 
+#### Relación con el material del curso
+
+| Tema del curso | Material | Cómo aparece en RelayBook |
+|---|---|---|
+| Leader‑follower replication con replication log | Semana 13 | El origen actúa como leader y los relays como followers que reciben el log de cambios y atienden lecturas |
+| Replicar para servir desde el nodo más cercano | Semana 13 | Relays regionales que atienden a los clientes de su región |
+| Replication lag y consistencia eventual | Semana 13 | El lag del relay es la staleness medida, y la consistencia eventual entre origen y relays es un trade‑off declarado |
+| Event streams con consumidores a su propio ritmo | Semana 13 | Cada cliente consume a su ritmo y retoma desde su último seq |
+| Replicas y replicación geográfica | Semana 11 | Los relays son réplicas regionales del libro |
+| Bottleneck y SPOF | Semanas 7, 10 y 11, y capítulo I | En el contrato de Binance el snapshot REST es el bottleneck y el origen es el SPOF de la recuperación |
+| Rate limiter, retry pattern y throttling | Capítulo VII | Son las tácticas del contrato de Binance, y el paper muestra que por sí solas no evitan la falla |
+| Availability = 2xx / (2xx + 5xx) y perf testing | Semana 10 y capítulo V | Métrica de disponibilidad y pruebas de carga del POC |
+| Fitness functions | Semanas 7, 10 y 11, capítulos VII y 14 | Las métricas de éxito se expresan como fitness functions |
+
+El curso declara como focos Performance, Scalability, Modularity, Reliability, Security, Requirements y Data (capítulo 14), y RelayBook trabaja Reliability, Scalability, Performance y Data. Las fallas metaestables y el state‑based resume van más allá del material, sobre la base de replication vista en clase.
+
 #### Trade‑offs
 
 | Se gana | Se paga |
