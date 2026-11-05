@@ -126,6 +126,18 @@ Refutación. La hipótesis cae si la carga del origen crece con el número de cl
 
 Las tres propiedades se derivan primero de forma analítica a partir de la estructura, y luego se verifican con un POC de la arquitectura (origen, 3 relays y miles de clientes WebSocket sintéticos con distintas velocidades de red). El experimento aplica un pico de mensajes con desconexiones correlacionadas, lo retira y mide carga del origen frente al número de desconectados, tiempo de recuperación por cliente, staleness p99 y tiempo hasta el estado sano. Como líneas de referencia del estado del arte se reproducen tres contratos públicos (snapshot por REST de Binance, snapshot por WebSocket de Kraken y resume por log con ventana estilo Ably), lo que permite mostrar en qué mejora la propuesta al SOTA.
 
+#### Datos para el POC
+
+| Fuente | Contenido | Costo |
+|---|---|---|
+| WebSocket público de Binance, stream `@depth@100ms` | Cambios reales por nivel de precio, grabables en vivo sin cuenta | Gratis |
+| Tardis.dev, `incremental_book_L2` | Histórico de los mismos cambios, con el valor absoluto por nivel y 0 para eliminar el nivel | Primer día de cada mes gratis, el resto de pago |
+| data.binance.vision | Trades y `bookTicker` históricos, sin cambios completos del libro | Gratis |
+
+El tráfico del POC es real, grabado y reproducido a 1x, 5x y 10x, y lo simulado son los clientes, sus redes y las desconexiones. Tardis documenta que, cuando detecta un mensaje perdido en el stream de Binance, reinicia el WebSocket y reconstruye el libro con el snapshot REST, lo que muestra el mismo problema desde un proveedor de datos profesional.
+
+Como primera medición empírica para el Entregable I, se graba el stream real y se calcula la razón entre mensajes recibidos y niveles distintos modificados por ventana de tiempo. Esa razón es el factor de ahorro del resume por estado frente al resume por log.
+
 #### Métricas de éxito
 
 Los umbrales son una propuesta inicial y se fijan en el Entregable II.
