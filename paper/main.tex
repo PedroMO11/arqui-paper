@@ -49,7 +49,7 @@ Market data is published at three levels of detail: L1 contains only the best bi
 
 \subsection{Related literature}
 
-Table~\ref{tab:related} summarizes the closest works published between 2023 and 2026. Work on cloud-hosted exchanges optimizes fair and simultaneous delivery to market participants, and work on metastable failures and overload proposes analysis tools or tactics that protect the server by dropping requests. None of them addresses the recovery of disconnected market data clients.
+Table~\ref{tab:related} summarizes the closest works published between 2023 and 2026. Work on cloud-hosted exchanges optimizes fair and simultaneous delivery to market participants, work on metastable failures proposes models and tools to explain and predict them, and work on overload control limits retries or drops requests to protect the service. None of them addresses the recovery of disconnected market data clients.
 
 \begin{table*}[t]
 \caption{Related literature (2023--2026)}
@@ -60,15 +60,15 @@ Table~\ref{tab:related} summarizes the closest works published between 2023 and 
 \toprule
 Work & Venue & Contribution & Difference with this work \\
 \midrule
-Onyx / Jasper \cite{onyx2024} & arXiv 2024 & Overlay tree of proxies that delivers exchange market data in the cloud & Targets fair delivery, not recovery \\
+Jasper \cite{onyx2024} & arXiv 2024--2025 & Overlay multicast tree that delivers market data to about 1\,000 participants in the cloud with low and uniform latency & Targets fair delivery, not recovery \\
 DBO \cite{dbo2023} & SIGCOMM 2023 & Delivery-based ordering for fairness in cloud exchanges & Solves fairness, not recovery \\
 Cuttlefish \cite{cuttlefish2025} & AFT 2025 & Fair and predictable execution for cloud exchanges & Focuses on execution \\
-Analyzing Metastable Failures \cite{isaacs2025} & HotOS 2025 & Simulation to find metastable failure modes & Generic services, not market data \\
-Modeling Metastability \cite{farahbakhsh2025} & HotNets 2025 & General model of metastability & No state dissemination to clients \\
-Formal Analysis \cite{formal2025} & arXiv 2025 & Markov chains to predict recovery time & Analysis only, no architecture \\
-Characterizing Metastable Faults \cite{characterizing2026} & arXiv 2026 & Faults vs.\ failures, retry storms & No market data \\
-RetryGuard \cite{retryguard2025} & arXiv 2025 & Prevention of retry storms & Protects the server; client book stays invalid \\
-Rajomon \cite{rajomon2025} & NSDI 2025 & Decentralized overload control & Drops requests; recovery cost unchanged \\
+Analyzing Metastable Failures \cite{isaacs2025} & HotOS 2025 & Queueing models, simulation and emulation to predict when a service is vulnerable to metastable failures & Request-response services, not market data \\
+Modeling Metastability \cite{farahbakhsh2025} & HotNets 2025 & Simple model that explains and predicts metastable states in data-center systems & No state dissemination to clients \\
+Formal Analysis \cite{formal2025} & arXiv 2025 & Markov-chain models of request-response servers that find metastable parameters and predict recovery time & Analysis method; proposes no architecture \\
+Characterizing Metastable Faults \cite{characterizing2026} & arXiv 2026 & Causal account: destabilizing cycles between components, turned into failures by scheduling decisions & No market data; frames the Binance loop \\
+RetryGuard \cite{retryguard2025} & arXiv 2025 & Per-service retry policy control that reduces retry storms in microservices & Limits retries; the cost of each recovery is unchanged \\
+Rajomon \cite{rajomon2025} & NSDI 2025 & Token- and price-based decentralized overload control for microservices & Drops requests; a dropped resync leaves the client book invalid \\
 \bottomrule
 \end{tabular}
 \end{table*}

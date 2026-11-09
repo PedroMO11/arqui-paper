@@ -102,7 +102,7 @@ En español: distribución de market data, libro de órdenes, resincronización,
 | Isaacs, Alvaro et al. | HotOS 2025 | Simulación para encontrar modos metaestables antes de que ocurran | Analiza el mismo tipo de falla | Estudia servicios genéricos, no market data, y se usa aquí como método |
 | Farahbakhsh, Haeberlen et al. | HotNets 2025 | Modelo general de metaestabilidad para storage replicado | Define formalmente la falla | No trata distribución de estado a clientes |
 | Formal Analysis of Metastable Failures (arXiv 2510.03551) | 2025 | Cadenas de Markov para predecir tiempos de recuperación | Herramienta para analizar el protocolo | No propone arquitectura |
-| Characterizing Metastable Faults and Failures (arXiv 2606.00942) | 2026 | Distingue fault y failure metaestable con el retry storm como caso central | Argumenta que el problema está en cómo se programa el trabajo de recuperación | No trata market data |
+| Characterizing Metastable Faults and Failures (arXiv 2606.00942) | 2026 | Explicación causal: ciclos de interacción entre componentes que desestabilizan el sistema, y que el scheduling convierte en falla | Ubica la causa en la interacción entre componentes, como el loop de Binance | No trata market data |
 | RetryGuard (arXiv 2511.23278) | 2025 | Previene retry storms en aplicaciones cloud | Ataca el mismo loop de reintentos | Es una táctica que protege al servidor, y en market data deja al cliente con el libro inválido |
 | Rajomon | NSDI 2025 | Overload control descentralizado para microservicios | Control de sobrecarga | Descarta requests, no reduce el costo de recuperar |
 
