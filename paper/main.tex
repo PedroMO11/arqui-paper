@@ -1,0 +1,354 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+
+\begin{document}
+
+\title{Improving the Availability of Binance Market Data under Reconnection Storms through the RelayBook Architecture with State-Based Resume\\
+\large Deliverable I: Requirements, User Model, Study, State of the Art and Proposal}
+
+\author{\IEEEauthorblockN{Nicolas Diego Castaneda Quichis}
+\IEEEauthorblockA{Universidad de Ingenier\'ia y Tecnolog\'ia (UTEC)\\
+Lima, Peru\\
+nicolas.castaneda@utec.edu.pe}
+\and
+\IEEEauthorblockN{Pedro Enrique Mori Ortiz}
+\IEEEauthorblockA{Universidad de Ingenier\'ia y Tecnolog\'ia (UTEC)\\
+Lima, Peru\\
+pedro.mori@utec.edu.pe}
+}
+
+\maketitle
+
+\begin{abstract}
+Cryptocurrency exchanges distribute Level 2 (L2) order book market data over WebSocket to millions of retail clients and trading bots on the public internet. Binance documents a recovery contract in which every client that loses its connection must discard its local book and request a full snapshot through a rate-limited REST endpoint, while repeated requests or repeated disconnections can lead to IP bans. Under a volatility spike with correlated disconnections, this recovery work competes with the live stream for the same capacity, a feedback loop that matches the structure of a metastable failure. This first deliverable presents the problem study, the requirements, the user model and the state of the art (2023--2026), and proposes RelayBook, an architecture in which regional relays replicate the order book, recovery is separated from distribution, slow clients are served through conflation, and a reconnecting client receives only the price levels that changed since its last sequence number (state-based resume). The hypothesis has two parts: the public Binance contract, simulated with real traffic replayed at 10x, remains degraded after the spike ends, while RelayBook keeps origin load constant, bounds recovery cost by the number of changed price levels, and returns to a healthy state without manual intervention. The evaluation will replay the real Binance depth stream against simulated clients and compare RelayBook with three recovery contracts used in practice.
+\end{abstract}
+
+\begin{IEEEkeywords}
+market data dissemination, limit order book, metastable failures, reconnection storm, state-based resume, software architecture
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+An exchange publishes market data so that every client can maintain a local copy of the limit order book. Traditional exchanges deliver this data through multicast on private networks, while cryptocurrency exchanges such as Binance deliver it over WebSocket on the public internet to a heterogeneous population that ranges from colocated market makers to mobile phones on unstable networks.
+
+The dominant delivery model is an initial snapshot followed by incremental updates (deltas) carrying sequence numbers. When a client detects a gap in the sequence, its local book is no longer valid and it must resynchronize. The way an exchange resynchronizes clients defines how much work falls on its servers when many clients fail at the same time. In the contract documented by Binance \cite{binance-localbook}, the depth stream does not replay missed messages after a reconnection, so every reconnection requires a full REST snapshot, and the REST endpoint is protected by rate limits and bans \cite{binance-streams}.
+
+This combination creates a risk that is invisible in normal operation. A volatility spike multiplies the message rate, slow clients disconnect together, all of them request a full snapshot, the server slows down the stream while serving those snapshots, and more clients disconnect. If the system remains degraded after the spike ends, the failure is metastable: it is sustained by the recovery work itself and not by the original trigger \cite{isaacs2025,farahbakhsh2025}.
+
+This paper proposes RelayBook, a software architecture for market data dissemination whose structure removes that sustaining loop. Its main contributions are:
+\begin{itemize}
+\item A structural analysis of the public Binance recovery contract in terms of trigger, sustaining effect and amplifiers.
+\item RelayBook, an architecture that separates the distribution path from the recovery path through regional relays.
+\item State-based resume, a recovery contract whose cost is bounded by the number of changed price levels instead of the number of missed messages.
+\item An evaluation plan based on real Binance traffic and on three recovery contracts used in practice.
+\end{itemize}
+
+This document corresponds to the first deliverable of the project. Section~\ref{sec:background} introduces the background, Section~\ref{sec:sota} reviews the state of the art, Section~\ref{sec:study} studies the Binance case, Section~\ref{sec:req} defines requirements and the user model, Section~\ref{sec:proposal} presents the proposal and its hypothesis, and Section~\ref{sec:plan} describes the work plan.
+
+\section{Background}
+\label{sec:background}
+
+\subsection{Order book and market data levels}
+
+An order book lists the pending buy (bid) and sell (ask) orders of an instrument such as BTC/USDT. A \emph{price level} is one row of the book: a price together with the total quantity of all orders at that price. Market data is published at three levels of detail, summarized in Table~\ref{tab:levels}. This paper works on L2 data, which is the depth stream offered by Binance.
+
+\begin{table}[t]
+\caption{Levels of detail of market data}
+\label{tab:levels}
+\centering
+\footnotesize
+\begin{tabular}{p{1.5cm}p{3.6cm}p{2.3cm}}
+\toprule
+Level & Content & Binance stream \\
+\midrule
+L1 (top of book) & Best bid and best ask with their quantities & \texttt{bookTicker} \\
+L2 (market by price) & Every price level with its aggregated quantity & \texttt{depth} \\
+L3 (market by order) & Every individual order with its identifier & Not published \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Snapshot and delta model}
+
+In the L2 model the client first obtains a snapshot and then applies deltas. Each Binance delta carries, for every modified price level, the \emph{absolute} resulting quantity, and a quantity of zero removes the level. Each event also carries the first and last update identifiers (\texttt{U} and \texttt{u}); a client must verify that every new event continues the previous one and, if the sequence breaks, discard its book and restart from a new REST snapshot \cite{binance-localbook}.
+
+\subsection{Volume optimizations in market data}
+
+Exchanges apply several optimizations to reduce the volume of market data. Table~\ref{tab:opt} lists them. The first six act on the live stream; none of them acts on recovery, where Binance sends the complete book again.
+
+\begin{table}[t]
+\caption{Volume optimizations in market data}
+\label{tab:opt}
+\centering
+\footnotesize
+\begin{tabular}{p{2.6cm}p{3.2cm}p{1.6cm}}
+\toprule
+Optimization & What it reduces & In Binance \\
+\midrule
+Aggregation by price (L3 to L2) & Many orders at one price travel as one quantity & Yes \\
+Depth truncation & Only the top $N$ levels & \texttt{@depth5/10/20} \\
+Deltas instead of snapshots & Only changed levels & Yes \\
+Time window & Changes within 100\,ms or 1\,s travel together & \texttt{@depth@100ms} \\
+Absolute quantity per level & A repeated update replaces instead of adding & Yes \\
+Transport compression & Bytes per message & permessage-deflate \\
+Per-client conflation & Pending queue of a slow client & No \\
+State-based resume & Cost of recovering a client & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Metastable failures}
+
+A metastable failure is a degraded state that persists after its trigger disappears, because a sustaining effect, typically retries or recovery work, consumes the capacity that would otherwise prevent new failures. Recent work proposes simulation to find metastable modes before they occur \cite{isaacs2025}, general models of metastability \cite{farahbakhsh2025}, Markov-chain analysis to predict recovery times \cite{formal2025}, and a distinction between metastable faults and failures in which the scheduling of recovery work is central \cite{characterizing2026}.
+
+\section{State of the Art}
+\label{sec:sota}
+
+\subsection{Search strategy and keywords}
+
+The review covered Google Scholar, arXiv, the ACM Digital Library and USENIX proceedings, restricted to work published between 2023 and 2026. The keywords were: \emph{market data dissemination, limit order book, L2 incremental updates, order book resynchronization, snapshot recovery, sequence gap recovery, conflation, metastable failures, retry storm, reconnection storm, overload control, WebSocket fan-out, edge relay} and \emph{cloud-hosted financial exchange}. Because exchanges rarely publish their internals in academic venues, the current public documentation of production systems was reviewed separately as the state of practice.
+
+\subsection{Related literature}
+
+Table~\ref{tab:related} summarizes the closest works. Two research lines are relevant. The first studies financial exchanges hosted in the cloud. Onyx (also published as Jasper) builds an overlay multicast tree of proxies that delivers market data to about 1\,000 participants with around 250\,\textmu s latency and roughly 50\% lower latency than the AWS multicast service \cite{onyx2024}. DBO achieves fairness through delivery-based ordering \cite{dbo2023}, and Cuttlefish provides a fair and predictable execution environment \cite{cuttlefish2025}. These works optimize the simultaneous and fair delivery to market participants; none of them addresses the recovery of disconnected clients.
+
+The second line studies metastable failures and overload. Besides the analysis tools cited above \cite{isaacs2025,farahbakhsh2025,formal2025,characterizing2026}, RetryGuard prevents retry storms in cloud applications \cite{retryguard2025} and Rajomon provides decentralized overload control for latency-sensitive microservices \cite{rajomon2025}. These are tactics that protect the server by limiting or discarding requests. In market data, a discarded resynchronization request leaves the client with an invalid book, so protecting the server does not restore the service for the client.
+
+\begin{table*}[t]
+\caption{Related literature (2023--2026)}
+\label{tab:related}
+\centering
+\footnotesize
+\begin{tabular}{p{2.8cm}p{1.6cm}p{4.0cm}p{3.4cm}p{3.4cm}}
+\toprule
+Work & Venue & Contribution & Similarity & Difference \\
+\midrule
+Onyx / Jasper \cite{onyx2024} & arXiv 2024--2025 & Overlay multicast tree of proxies for exchange market data in the cloud & Tree of relays between the exchange and its clients & Targets fair simultaneous delivery, not recovery \\
+DBO \cite{dbo2023} & SIGCOMM 2023 & Delivery-based ordering for fairness in cloud exchanges & Market data in cloud exchanges & Solves fairness, not recovery \\
+Cuttlefish \cite{cuttlefish2025} & AFT 2025 & Fair and predictable execution environment for cloud exchanges & Simultaneous market data release & Focuses on execution, not retail dissemination \\
+Analyzing Metastable Failures \cite{isaacs2025} & HotOS 2025 & Simulation to find metastable failure modes in advance & Same failure class & Generic services; used here as method \\
+Modeling Metastability \cite{farahbakhsh2025} & HotNets 2025 & General model of metastability for replicated storage & Formal definition of the failure & No state dissemination to clients \\
+Formal Analysis \cite{formal2025} & arXiv 2025 & Markov chains to predict recovery time & Analysis tool for the protocol & Proposes no architecture \\
+Characterizing Metastable Faults \cite{characterizing2026} & arXiv 2026 & Faults vs.\ failures, retry storm as running example & Recovery work as root cause & No market data \\
+RetryGuard \cite{retryguard2025} & arXiv 2025 & Prevention of retry storms in cloud applications & Same retry loop & Server-side tactic; client stays invalid \\
+Rajomon \cite{rajomon2025} & NSDI 2025 & Decentralized overload control for microservices & Overload control & Drops requests; recovery cost unchanged \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{State of practice}
+
+Table~\ref{tab:practice} compares the recovery contracts documented by production systems. Binance requires a REST snapshot after each reconnection \cite{binance-localbook}. Kraken WebSocket v2 sends the snapshot through the same channel on subscription and validates the book with a CRC32 checksum over the top ten levels, but still rebuilds the full book after every reconnection \cite{kraken-reconnect,kraken-book}. Hyperliquid's L4 stream also starts with a full snapshot \cite{hyperliquid-l4}. Ably resumes a connection from the last received serial within a two-minute window \cite{ably-states}. CME MDP 3.0 publishes a looping snapshot on a separate recovery feed \cite{cme-recovery} and operates a conflated feed for BrokerTec \cite{cme-conflated}, but over multicast on private networks.
+
+\begin{table}[t]
+\caption{Recovery contracts in production systems}
+\label{tab:practice}
+\centering
+\footnotesize
+\begin{tabular}{p{1.5cm}p{1.2cm}p{1.9cm}p{2.2cm}}
+\toprule
+Approach & Used by & Cost per client & Under a spike \\
+\midrule
+REST snapshot after reconnection & Binance & Full book from the origin & Grows with disconnections; hits rate limits and bans \\
+WebSocket snapshot on subscribe & Kraken, Hyperliquid & Full book on the same channel & No REST, but each reconnection still costs a full book \\
+Log-based resume & Ably & Missed messages & Window covers less time at 10x; more clients fall back to full resync \\
+Looping snapshot feed & CME & Wait for next cycle & Requires multicast on private networks \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Gap}
+
+The 2023--2026 literature on cloud exchanges optimizes fair delivery to market participants, and the literature on metastable failures proposes tactics that protect the server by dropping work. In practice, every WebSocket-based contract recovers a client with either a full book or the list of missed messages, two costs that grow precisely during a spike. The review did not find work that bounds recovery cost by the number of changed price levels, nor work that analyzes market data recovery with the metastable failure framework. The documentation of OKX, Bybit and Coinbase is still pending review to confirm this gap.
+
+\section{Problem Study: the Binance Case}
+\label{sec:study}
+
+\subsection{Sustaining loop}
+
+The documented contract allows the following sequence:
+\begin{enumerate}
+\item A volatility spike multiplies the message rate.
+\item WebSocket connections of slow clients close (code 1006). Since the stream does not replay missed messages, their local books become invalid.
+\item Each of those clients requests a full REST snapshot, the most expensive operation of the recovery path.
+\item While serving snapshots, the server delays the stream, so more connections close and more snapshots are requested.
+\item The spike ends, but the system remains saturated by its own recovery requests.
+\end{enumerate}
+Two documented rules act as amplifiers: further requests after an HTTP 429 response lead to an HTTP 418 ban, and IPs that are repeatedly disconnected may be banned \cite{binance-streams}. Both turn a transient failure into a prolonged exclusion of the client.
+
+\subsection{Evidence and limitations}
+
+The contract itself is documented by Binance \cite{binance-localbook,binance-streams}. Users of the official developer forum report connections closing with code 1006 during heavy trading and hundreds of depth subscriptions dropping at nearly the same instant, which indicates correlated disconnections \cite{forum-1006,forum-depth}. Tardis.dev, a professional historical data provider, documents that when it detects a missed message in the Binance stream it restarts the WebSocket connection and rebuilds the book from the REST snapshot \cite{tardis-binance}.
+
+No public post-mortem attributes a Binance incident to a reconnection storm, and the internal mitigations of Binance are unknown. Therefore this work does not claim that Binance failed for this reason. It claims that the public contract meets the structural conditions of a metastable failure, and it tests that claim through simulation of the contract, as a black-box evaluation of the public specification.
+
+\subsection{Preliminary measurement}
+
+Because every delta carries the absolute quantity of a level, only the latest value of each level matters after a disconnection. The study records the public \texttt{@depth@100ms} stream of BTCUSDT and computes, over disconnection windows of 5, 30 and 60 seconds, the ratio between the number of received messages and the number of distinct price levels modified. This ratio quantifies the saving of a state-based resume over a log-based resume. Since the 100\,ms stream already merges updates inside each message, the ratio is measured over windows that span hundreds of messages.
+
+\section{Requirements and User Model}
+\label{sec:req}
+
+\subsection{Functional requirements}
+
+\begin{itemize}
+\item \textbf{FR1.} Deliver L2 updates per instrument in order, with sequence numbers.
+\item \textbf{FR2.} Allow every client to detect a gap in its sequence.
+\item \textbf{FR3.} Allow a reconnecting client to resume from its last sequence number.
+\item \textbf{FR4.} Provide a full snapshot to a client without a valid sequence number.
+\item \textbf{FR5.} Serve slow clients without disconnecting them, delivering the latest value per price level.
+\item \textbf{FR6.} Allow a client to verify that its book matches the origin.
+\end{itemize}
+
+\subsection{Non-functional requirements}
+
+Table~\ref{tab:nfr} lists the quality attributes with initial thresholds, which will be fixed in Deliverable II.
+
+\begin{table}[t]
+\caption{Non-functional requirements (initial thresholds)}
+\label{tab:nfr}
+\centering
+\footnotesize
+\begin{tabular}{p{0.6cm}p{1.7cm}p{4.9cm}}
+\toprule
+ID & Attribute & Requirement \\
+\midrule
+NFR1 & Availability & Origin load varies less than 5\% between 0\% and 50\% of clients disconnected \\
+NFR2 & Availability & Fewer than 1\% of reconnections end in a full resynchronization during a 10x spike \\
+NFR3 & Reliability & After the spike ends, 99\% of clients hold a valid book within a bounded time and without manual intervention \\
+NFR4 & Performance & Recovery payload does not grow with the message rate and never exceeds the book depth \\
+NFR5 & Data freshness & p99 staleness below 1\,s during the spike \\
+NFR6 & Scalability & Capacity grows by adding relays, without changes to the origin \\
+NFR7 & Consistency & Eventual consistency between origin and relays, with measured replication lag \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{User model}
+
+Table~\ref{tab:users} describes the three user profiles that drive the requirements.
+
+\begin{table}[t]
+\caption{User model}
+\label{tab:users}
+\centering
+\footnotesize
+\begin{tabular}{p{1.6cm}p{2.7cm}p{2.7cm}}
+\toprule
+User & Context & Main need \\
+\midrule
+Retail trader on mobile & Unstable network, slow consumer, frequent reconnections & A correct book and fresh top prices after reconnecting \\
+Algorithmic trader or market maker & Many instruments, low latency, automated reconnection & Fast and exact resynchronization without bans \\
+Exchange operator (SRE) & Responsible for availability and cost & Automatic recovery after spikes, predictable origin load \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Proposal: RelayBook}
+\label{sec:proposal}
+
+\subsection{Architectural decisions}
+
+RelayBook is a hierarchical, push-based publish-subscribe architecture. The detailed design belongs to Deliverable II; this deliverable fixes the decisions that support the hypothesis:
+\begin{itemize}
+\item \textbf{Separate distribution from recovery.} The origin publishes a sequenced feed at a rate independent of the number of clients, and recovery happens only at the relays, so recovery work never competes with the origin \cite{characterizing2026}.
+\item \textbf{Regional relays as an overlay over unicast.} Each relay keeps a replica of the book for its region, following the overlay approach that Onyx and DBO show to be viable in the cloud without multicast \cite{onyx2024,dbo2023}.
+\item \textbf{State-based resume.} Each relay stores, for every price level, the sequence number of its last change. A client that reconnects sends its last sequence number and receives only the levels modified since then, with their current values. This is valid because Binance deltas carry absolute quantities, so the current value replaces every intermediate change.
+\item \textbf{Per-client conflation.} When the queue of a slow client grows, the relay merges pending deltas and sends the latest value per level, so the connection does not close.
+\item \textbf{Looping snapshot.} The feed includes a periodic full snapshot that covers relays or clients without a valid sequence number, in the style of the CME recovery feed \cite{cme-recovery}.
+\end{itemize}
+
+\subsection{Hypothesis}
+
+\textbf{H1.} The public Binance recovery contract, simulated with real traffic replayed at 10x, remains degraded after the spike is removed, which shows that it can enter a metastable failure.
+
+\textbf{H2.} RelayBook has no metastable state. Under a 10x spike with correlated disconnections it satisfies three properties:
+\begin{enumerate}
+\item[P1.] Origin load remains constant regardless of the number of disconnected clients.
+\item[P2.] The cost of recovering a client is bounded by the number of distinct price levels changed during its disconnection, which never exceeds the book depth, and does not depend on the message rate.
+\item[P3.] After the spike is removed, the system returns to a healthy state in bounded time and without manual intervention.
+\end{enumerate}
+
+\subsection{Mechanism}
+
+A metastable failure requires recovery work to compete for the capacity that prevents new failures. In RelayBook that work never reaches the origin, and at the relay its cost does not grow with the message rate, because many changes to the same level collapse into a single value. In a log-based resume the cost is proportional to the missed messages, which multiply during a spike and push clients out of the recovery window into a full resynchronization. Conflation also prevents slow clients from disconnecting, which removes the trigger.
+
+\subsection{Refutation conditions}
+
+The hypothesis is refuted if origin load grows with the number of disconnected clients, if recovery cost grows with the message rate, if relays saturate with the reconnections of their region, or if the log-based baseline does not degrade into full resynchronizations during the spike, in which case state-based resume would add nothing.
+
+\subsection{Evaluation plan}
+
+The proof of concept will replay the real Binance \texttt{@depth@100ms} stream, recorded live or obtained from Tardis.dev \cite{tardis-binance}, at 1x, 5x and 10x speed. The clients, their network speeds and their disconnections are simulated. Three baselines reproduce the contracts of Table~\ref{tab:practice}: REST snapshot (Binance), WebSocket snapshot (Kraken) and log-based resume with a window (Ably). Table~\ref{tab:metrics} lists the metrics, which will be expressed as fitness functions.
+
+\begin{table}[t]
+\caption{Success metrics}
+\label{tab:metrics}
+\centering
+\footnotesize
+\begin{tabular}{p{2.4cm}p{2.4cm}p{2.3cm}}
+\toprule
+Metric & Measurement & Success criterion \\
+\midrule
+Origin load vs.\ disconnected clients & Messages/s and CPU at 0, 10, 30 and 50\% disconnected & Variation below 5\% \\
+Full resyncs per reconnection & Share ending in a full book during the spike & Close to 0\% \\
+Bytes per recovery vs.\ rate & Resume payload at 1x, 5x and 10x & Constant or decreasing \\
+Time to healthy state & From spike end to 99\% of valid books & Bounded, no manual action \\
+Staleness p99 & Client price vs.\ origin price & Below 1\,s \\
+Capacity per relay & Clients before saturation & Measured, defines sizing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Expected trade-offs}
+
+RelayBook makes origin load independent of disconnected clients at the cost of operating the relay tier. Bounding recovery by price levels costs memory at each relay to store the last sequence number per level. Slow clients stay connected but observe fewer intermediate updates, and relays are eventually consistent with the origin.
+
+\section{Work Plan and Threats to Validity}
+\label{sec:plan}
+
+Deliverable II will specify the detailed architecture, derive the three properties analytically and fix the metrics and the spike scenario. Deliverable III will implement the proof of concept with an origin, three relays and thousands of synthetic WebSocket clients, report the measurements and size the relay tier.
+
+The main threats are the fidelity of simulated clients and networks, the unknown internal mitigations of Binance, and the pending review of OKX, Bybit and Coinbase to confirm the novelty of state-based resume. The evaluation mitigates the first two by using real traffic and by limiting its claims to the public contract.
+
+\section{Conclusion}
+
+The public Binance recovery contract couples recovery cost to the number of failing clients, a structure that can sustain a metastable failure during volatility spikes. RelayBook addresses it with architectural decisions: a separate recovery path, regional relays, conflation and state-based resume. The next deliverables will design the architecture in detail and test the hypothesis with real market data.
+
+\section*{Use of AI Tools}
+
+Claude (Anthropic) was used to support the literature search, the structuring of the proposal and the drafting of this document. The selection of the problem, the verification of sources and the final decisions were made by the authors.
+
+\begin{thebibliography}{00}
+\bibitem{binance-localbook} Binance, ``How to manage a local order book correctly,'' Binance Developer Documentation. [Online]. Available: \url{https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly}
+\bibitem{binance-streams} Binance, ``WebSocket market streams,'' Binance Developer Documentation. [Online]. Available: \url{https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/Connect}
+\bibitem{isaacs2025} R. Isaacs, P. Alvaro \emph{et al.}, ``Analyzing metastable failures,'' in \emph{Proc. Workshop on Hot Topics in Operating Systems (HotOS)}, 2025.
+\bibitem{farahbakhsh2025} A. Farahbakhsh, A. Haeberlen \emph{et al.}, ``Modeling metastability,'' in \emph{Proc. ACM Workshop on Hot Topics in Networks (HotNets)}, 2025.
+\bibitem{formal2025} ``Formal analysis of metastable failures in software systems,'' arXiv:2510.03551, 2025.
+\bibitem{characterizing2026} ``Characterizing metastable faults and failures,'' arXiv:2606.00942, 2026.
+\bibitem{onyx2024} M. Haseeb \emph{et al.}, ``Design and implementation of a scalable financial exchange in the public cloud,'' arXiv:2402.09527, 2024.
+\bibitem{dbo2023} E. Gupta, P. Goyal, I. Marinos, C. Zhao, and R. Mittal, ``DBO: Fairness for cloud-hosted financial exchanges,'' in \emph{Proc. ACM SIGCOMM}, 2023.
+\bibitem{cuttlefish2025} L. Yu, P. Goyal, I. Marinos, and V. Liu, ``Cuttlefish: A fair, predictable execution environment for cloud-hosted financial exchanges,'' in \emph{Proc. Conf. Advances in Financial Technologies (AFT)}, LIPIcs vol. 354, 2025.
+\bibitem{retryguard2025} ``RetryGuard: Preventing self-inflicted and attack-driven retry storms in cloud applications,'' arXiv:2511.23278, 2025.
+\bibitem{rajomon2025} ``Rajomon: Decentralized and coordinated overload control for latency-sensitive microservices,'' in \emph{Proc. USENIX Symp. Networked Systems Design and Implementation (NSDI)}, 2025.
+\bibitem{kraken-reconnect} Kraken, ``WebSocket reconnection,'' Kraken API Documentation. [Online]. Available: \url{https://docs.kraken.com/exchange/guides/websockets/reconnection}
+\bibitem{kraken-book} Kraken, ``Book (Level 2), Spot WebSocket v2,'' Kraken API Documentation. [Online]. Available: \url{https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book}
+\bibitem{hyperliquid-l4} QuickNode, ``Hyperliquid L4 book dataset,'' QuickNode Documentation. [Online]. Available: \url{https://www.quicknode.com/docs/hyperliquid/datasets/l4-book}
+\bibitem{ably-states} Ably, ``Connection state and recovery,'' Ably Documentation. [Online]. Available: \url{https://ably.com/docs/connect/states}
+\bibitem{cme-recovery} CME Group, ``MDP 3.0, recovery services,'' CME Client Systems Wiki. [Online]. Available: \url{https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457325847/MDP+3.0+-+Recovery+Services}
+\bibitem{cme-conflated} CME Group, ``MDP 3.0, MBP and MBOLD market recovery for the conflated UDP market data group for BrokerTec,'' CME Client Systems Wiki. [Online]. Available: \url{https://cmegroupclientsite.atlassian.net/wiki/spaces/EPICSANDBOX/pages/457672459}
+\bibitem{forum-1006} Binance Developer Community, ``WebSocket keeps disconnecting with 1006 error during heavy trading.'' [Online]. Available: \url{https://dev.binance.vision/t/websocket-keeps-disconnecting-with-1006-error-during-heavy-trading/35472}
+\bibitem{forum-depth} Binance Developer Community, ``Depth websockets keep closing (1006 but not clientside).'' [Online]. Available: \url{https://dev.binance.vision/t/depth-websockets-keep-closing-1006-but-not-clientside/2428}
+\bibitem{tardis-binance} Tardis.dev, ``Binance Spot historical data details.'' [Online]. Available: \url{https://docs.tardis.dev/historical-data-details/binance}
+\end{thebibliography}
+
+\end{document}
