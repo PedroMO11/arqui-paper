@@ -59,7 +59,7 @@ In practice, Kraken sends the snapshot over the same WebSocket channel when a cl
 
 \section{Study of the Binance Case}
 
-The documented contract allows a feedback loop. A volatility spike multiplies the message rate, the connections of slow clients close, each of those clients requests a full REST snapshot, and the server may delay the stream while serving those snapshots, which can close further connections. Two documented rules may amplify the loop, since further requests after an HTTP 429 response lead to an HTTP 418 ban and repeatedly disconnected IPs may be banned \cite{binance-streams}.
+The documented contract allows a feedback loop. A volatility spike multiplies the message rate, the connections of slow clients close, each of those clients requests a full REST snapshot, and the server may delay the stream while serving those snapshots, which can close further connections. Two documented rules may amplify the loop, since further requests after an HTTP 429 response lead to an HTTP 418 ban and repeatedly disconnected IPs may be banned \cite{binance-general,binance-streams}.
 
 Users of the official developer forum report connections closing with code 1006 during heavy trading and many depth streams closing at the same time \cite{forum-1006,forum-depth}. Tardis.dev, a provider of historical market data, documents that it rebuilds the book from the REST snapshot after detecting a missed message in the Binance stream \cite{tardis-binance}.
 
