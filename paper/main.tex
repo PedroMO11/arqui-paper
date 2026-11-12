@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-Binance distributes order book market data over WebSocket to millions of clients. Its documented recovery contract requires every client that loses its connection to request a full snapshot through a rate-limited REST endpoint. During a volatility spike with correlated disconnections, this recovery work competes with the live stream for the same capacity, a feedback loop with the structure of a metastable failure. This paper studies the Binance contract and proposes RelayBook, an architecture of regional relays in which a reconnecting client receives only the price levels that changed since its last sequence number. The hypothesis is that the public Binance contract can remain degraded after a spike ends, while RelayBook, whose recovery cost is bounded by the number of changed price levels, returns to a healthy state on its own. The architecture separates distribution from recovery, resumes clients from the state of the book instead of the log of missed messages, and conflates updates for slow clients. The evaluation compares the Binance contract, a serial-based resume in the style of Ably and RelayBook through three metrics: the share of full resynchronizations per reconnection, the time to recover after the spike and the p99 staleness of the client book.
+Binance distributes order book market data over WebSocket to millions of clients. Its documented recovery contract requires every client that loses its connection to request a full snapshot through a rate-limited REST endpoint. During a volatility spike with correlated disconnections, this recovery work competes with the live stream for the same capacity, a feedback loop with the structure of a metastable failure. This paper studies the Binance contract and proposes RelayBook, an architecture of regional relays in which a reconnecting client receives only the price levels that changed since its last sequence number. The hypothesis is that the public Binance contract can remain degraded after a spike ends, while RelayBook, whose recovery cost is bounded by the number of changed price levels, returns to a healthy state on its own. The architecture separates distribution from recovery, resumes clients from the state of the book instead of the log of missed messages, and conflates updates for slow clients. The evaluation compares the Binance contract, a serial-based resume in the style of Ably and RelayBook through metrics on the share of full resynchronizations, the data received per recovery, the load of the origin, the time to recover after the spike, the p99 staleness and the correctness of the client book.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -85,6 +85,9 @@ No public post-mortem attributes a Binance incident to this loop, and the intern
 \item NFR1. During a spike, less than 1\% of the reconnections end in a full snapshot.
 \item NFR2. After a spike, 99\% of the clients hold a valid book within 30\,s, without manual intervention.
 \item NFR3. The p99 staleness of the client book stays below 1\,s during a spike.
+\item NFR4. The data received by a reconnecting client does not grow with the message rate.
+\item NFR5. The load of the origin varies less than 5\% between 0\% and 50\% of clients disconnected.
+\item NFR6. Every book served to a client matches the book of the origin at its sequence number.
 \end{itemize}
 
 \section{User Model}
@@ -128,7 +131,7 @@ Each client keeps its local book and the sequence number of the last delta it ap
 
 \subsection{State-Based Resume}
 
-Algorithm~\ref{alg:resume} describes how a relay answers a reconnecting client. If the last sequence number of the client is older than the retention horizon, the relay sends a full snapshot from its own replica. Otherwise it sends only the levels whose last change is newer than that sequence number, with their current quantity. Because each quantity is absolute, applying the current value of a level is equivalent to applying all of its intermediate changes, and the size of the response is bounded by the number of distinct levels changed during the disconnection, which never exceeds the size of the book plus its tombstones. If the relay keeps its levels in an index ordered by their last sequence number, the set $D$ is obtained in time proportional to its size.
+Algorithm~\ref{alg:resume} describes how a relay answers a reconnecting client. If the relay is resynchronizing after a gap in the feed, it redirects the client to another relay. If the last sequence number of the client is newer than the replica, which happens when the client comes from a faster relay, the relay waits until its replica reaches that sequence number, so that a client never moves backward in time. If the last sequence number of the client is older than the retention horizon, the relay sends a full snapshot from its own replica. Otherwise it sends only the levels whose last change is newer than that sequence number, with their current quantity. Because each quantity is absolute, applying the current value of a level is equivalent to applying all of its intermediate changes, and the size of the response is bounded by the number of distinct levels changed during the disconnection, which never exceeds the size of the book plus its tombstones. If the relay keeps its levels in an index ordered by their last sequence number, the set $D$ is obtained in time proportional to its size.
 
 Consider a client that misses five updates while disconnected, in which level 67\,000 is set to 1.0, 1.5, 0.7 and 1.2~BTC and level 66\,999 is set to 0.8~BTC. Under the Binance contract the client downloads the full book from the origin, which may contain hundreds of levels. Under a serial-based resume in the style of Ably \cite{ably-states} it receives the five missed messages. Under state-based resume it receives only two levels, 67\,000 at 1.2~BTC and 66\,999 at 0.8~BTC, because the last value of a level replaces the previous ones. Table~\ref{tab:recovery} summarizes the three contracts. During a spike the number of messages is expected to grow much faster than the number of distinct levels they modify, since updates concentrate near the best price.
 
@@ -153,7 +156,13 @@ RelayBook & Current value of each changed level, from the relay & Distinct chang
 \label{alg:resume}
 \KwData{Relay book $B$ with entries $(p, q_p, s_p)$, current sequence $S$, retention horizon $S_{min}$, last client sequence $s_c$}
 \KwResult{Resume message for the client}
-\eIf{$s_c < S_{min}$ \textbf{or} $s_c > S$}{
+\If{the replica has a gap in the feed}{
+  \Return redirect to another relay\;
+}
+\If{$s_c > S$}{
+  wait until $S \geq s_c$\;
+}
+\eIf{$s_c < S_{min}$}{
   \Return full snapshot of $B$ tagged with $S$\;
 }{
   $D \leftarrow \{(p, q_p) \mid (p, q_p, s_p) \in B,\ s_p > s_c\}$\;
@@ -165,13 +174,17 @@ RelayBook & Current value of each changed level, from the relay & Distinct chang
 
 Each client connection has a bounded queue. While the queue has space, the relay forwards deltas unchanged. When the queue is full, the relay stops enqueuing deltas and merges new changes into a pending map from price level to latest quantity, together with the first and last sequence numbers it covers. When the connection becomes writable again, the relay sends the pending map as a single delta with that sequence range. The client applies it as a normal delta, so a slow client receives fewer intermediate updates instead of losing its connection.
 
+\subsection{Consistency}
+
+RelayBook does not keep the relays strictly synchronized, since synchronous replication would force the origin to wait for the slowest relay before publishing each update. Instead, each relay must hold exactly the book of the origin at some sequence number, possibly a few milliseconds behind, which corresponds to eventual consistency with consistent prefixes. A relay may serve stale data, whose delay is measured as staleness, but it must never serve a book that did not exist at the origin. Four mechanisms support this property. Only the origin assigns sequence numbers, so every relay applies the same log in the same order, as in leader-follower replication. A relay that detects a gap stops answering resumes and redirects its clients until the next periodic snapshot. Clients verify the continuity of the sequence numbers they receive, as the Binance contract already requires \cite{binance-localbook}. Finally, the feed periodically carries a checksum of the top levels of the book, similar to the CRC32 over the top ten levels used by Kraken \cite{kraken-book}, which relays and clients compare with their own book to detect divergence.
+
 \subsection{Architectural Decisions and Trade-Offs}
 
 Separating the distribution path from the recovery path is intended to make the work of the origin independent of the number of disconnected clients. The cost is a new tier of relays that must be deployed and operated, and that becomes a failure point for its region, mitigated by the ability of clients to resume at another relay. Replicating the book at the relays introduces eventual consistency between the origin and each relay, whose replication lag adds to the staleness observed by clients. Storing the last sequence number per level and the tombstones increases the memory of each relay, and conflation trades the completeness of intermediate updates for the continuity of the connection.
 
 \subsection{Hypothesis}
 
-The hypothesis has two parts. First, the public Binance contract, simulated with real traffic replayed at 10x, remains degraded after the spike ends. Second, under the same conditions RelayBook is expected to keep full resynchronizations below 1\% of the reconnections, to return to a healthy state within 30\,s without manual intervention and to keep the p99 staleness below 1\,s, while the Ably-style resume is expected to show higher staleness during the spike, because each recovery carries every missed message. Either part may be refuted by the measurements.
+The hypothesis has two parts. First, the public Binance contract, simulated with real traffic replayed at 10x, remains degraded after the spike ends. Second, under the same conditions RelayBook is expected to keep full resynchronizations below 1\% of the reconnections, to return to a healthy state within 30\,s without manual intervention and to keep the p99 staleness below 1\,s, while the Ably-style resume is expected to show higher staleness during the spike, because each recovery carries every missed message. RelayBook is also expected to keep the data received by a reconnecting client constant as the message rate grows, to keep the load of the origin independent of the number of disconnected clients, and to serve no book that differs from the origin. Either part may be refuted by the measurements.
 
 \section{Evaluation Metrics}
 
@@ -189,6 +202,9 @@ Metric & Definition & Target \\
 Full resync ratio & Reconnections that end in a full snapshot over all reconnections during the spike (NFR1) & $< 1\%$ \\
 Time to recover & Time from the end of the spike until 99\% of clients hold a valid book (NFR2) & $\leq 30$\,s, no manual action \\
 Staleness p99 & Delay between an update at the origin and its application at the client, during the spike (NFR3) & $< 1$\,s \\
+Recovery payload & Bytes received by a reconnecting client at 1x, 5x and 10x message rate (NFR4) & Non-increasing with the rate \\
+Origin load sensitivity & $(L_{50} - L_{0}) / L_{0}$, where $L_x$ is the load of the origin with $x\%$ of clients disconnected (NFR5) & $< 5\%$ \\
+Correctness & Client books whose checksum matches the origin book at the same sequence number (NFR6) & $100\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
