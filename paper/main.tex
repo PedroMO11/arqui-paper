@@ -9,6 +9,8 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{hyperref}
+\usepackage[ruled,linesnumbered]{algorithm2e}
+\graphicspath{{figures/}}
 
 \begin{document}
 
@@ -24,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-Binance distributes order book market data over WebSocket to millions of clients. Its documented recovery contract requires every client that loses its connection to request a full snapshot through a rate-limited REST endpoint. During a volatility spike with correlated disconnections, this recovery work competes with the live stream for the same capacity, a feedback loop with the structure of a metastable failure. This paper studies the Binance contract and proposes RelayBook, an architecture of regional relays in which a reconnecting client receives only the price levels that changed since its last sequence number. The hypothesis is that the public Binance contract can remain degraded after a spike ends, while RelayBook keeps the load of the origin independent of the number of disconnected clients.
+Binance distributes order book market data over WebSocket to millions of clients. Its documented recovery contract requires every client that loses its connection to request a full snapshot through a rate-limited REST endpoint. During a volatility spike with correlated disconnections, this recovery work competes with the live stream for the same capacity, a feedback loop with the structure of a metastable failure. This paper studies the Binance contract and proposes RelayBook, an architecture of regional relays in which a reconnecting client receives only the price levels that changed since its last sequence number. The hypothesis is that the public Binance contract can remain degraded after a spike ends, while RelayBook keeps the load of the origin independent of the number of disconnected clients. The architecture separates distribution from recovery, resumes clients from the state of the book instead of the log of missed messages, and conflates updates for slow clients. Its evaluation is defined through metrics on client availability, origin load, recovery cost and correctness.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -48,6 +50,7 @@ An order book lists the pending buy and sell orders of an instrument such as BTC
 A metastable failure is a degraded state that persists after its trigger is removed, because a sustaining effect such as a retry storm prevents the system from draining its backlog \cite{isaacs2025}. Unlike a regular overload, the system does not recover when the load returns to normal, and recovery usually requires manual intervention such as shedding load or restarting components.
 
 \section{State of the Art}
+\label{sec:sota}
 
 The migration of financial exchanges to the public cloud has motivated architectures that deliver market data without network multicast. Jasper builds an overlay multicast tree of proxies that delivers market data to about 1\,000 participants with low latency and small differences in reception time, and reports around 50\% lower latency than the multicast service of AWS \cite{onyx2024}. DBO provides fairness among participants of cloud-hosted exchanges through delivery-based ordering \cite{dbo2023}. These works place intermediate nodes between the exchange and its clients, as RelayBook does, but they optimize fair and simultaneous delivery to a bounded set of market participants and do not address how a disconnected client recovers its book.
 
@@ -83,6 +86,7 @@ No public post-mortem attributes a Binance incident to this loop, and the intern
 \item NFR2. After a spike, the system returns to a healthy state without manual intervention.
 \item NFR3. The cost of recovering a client does not grow with the message rate.
 \item NFR4. The p99 staleness of the client book stays below 1\,s during a spike.
+\item NFR5. Clients hold a valid book at least 99\% of the time during a spike.
 \end{itemize}
 
 \section{User Model}
@@ -105,11 +109,82 @@ Exchange operator & Responsible for availability & Automatic recovery after spik
 \end{tabular}
 \end{table}
 
-\section{Proposal}
+\section{Proposed Architecture}
 
-RelayBook places regional relays between the exchange and its clients. Each relay keeps a replica of the order book and handles the reconnections of its region, with the aim of keeping recovery work away from the origin. A reconnecting client sends its last sequence number and receives only the price levels that changed since then, a mechanism called state-based resume. This mechanism relies on the fact that each Binance update carries the absolute quantity of a level, so the current value of a level replaces all of its intermediate changes.
+RelayBook follows a hierarchical, push-based publish-subscribe style. Fig.~\ref{fig:arch} contrasts it with the public Binance contract. In the Binance contract every reconnection ends in a request to the origin, while in RelayBook the origin publishes a single sequenced feed to a tier of regional relays, and reconnections are resolved at the relays.
 
-The hypothesis has two parts. First, the public Binance contract, simulated with real traffic replayed at 10x, remains degraded after the spike ends. Second, under the same conditions RelayBook is expected to keep the load of the origin independent of the number of disconnected clients, to bound the recovery cost of a client by the number of changed price levels, and to return to a healthy state without manual intervention. Both parts will be tested by replaying the public Binance \texttt{depth} stream against simulated clients, and either part may be refuted by the measurements.
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{architecture.png}
+\caption{Recovery paths in the public Binance contract (a) and in RelayBook (b).}
+\label{fig:arch}
+\end{figure*}
+
+\subsection{Components}
+
+The origin contains the matching engine and a sequencer that publishes, for each instrument, a feed of L2 deltas with consecutive sequence numbers. The same feed carries a full snapshot of the book every $T$ seconds. The origin only accepts connections from relays, so its fan-out depends on the number of relays $R$ and not on the number of clients $N$.
+
+Each relay subscribes to the feed, applies every delta to a replica of the book and stores, for every price level, the sequence number of its last change. Removed levels are kept as tombstones with quantity zero until a retention horizon $S_{min}$, so that a resuming client also learns which levels disappeared. A relay that detects a gap in the feed discards its replica and waits for the next periodic snapshot instead of requesting one from the origin.
+
+Each client keeps its local book and the sequence number of the last delta it applied. Since sequence numbers are assigned by the origin, a client can resume at any relay whose retention horizon covers its last sequence number, which allows a client to move to another relay if its own relay fails.
+
+\subsection{State-Based Resume}
+
+Algorithm~\ref{alg:resume} describes how a relay answers a reconnecting client. If the last sequence number of the client is older than the retention horizon, the relay sends a full snapshot from its own replica. Otherwise it sends only the levels whose last change is newer than that sequence number, with their current quantity. Because each quantity is absolute, applying the current value of a level is equivalent to applying all of its intermediate changes, and the size of the response is bounded by the number of distinct levels changed during the disconnection, which never exceeds the size of the book plus its tombstones. If the relay keeps its levels in an index ordered by their last sequence number, the set $D$ is obtained in time proportional to its size.
+
+\begin{algorithm}[t]
+\caption{State-based resume at a relay}
+\label{alg:resume}
+\KwData{Relay book $B$ with entries $(p, q_p, s_p)$, current sequence $S$, retention horizon $S_{min}$, last client sequence $s_c$}
+\KwResult{Resume message for the client}
+\eIf{$s_c < S_{min}$ \textbf{or} $s_c > S$}{
+  \Return full snapshot of $B$ tagged with $S$\;
+}{
+  $D \leftarrow \{(p, q_p) \mid (p, q_p, s_p) \in B,\ s_p > s_c\}$\;
+  \Return delta $D$ tagged with the range $(s_c + 1, S)$\;
+}
+\end{algorithm}
+
+\subsection{Slow-Client Conflation}
+
+Each client connection has a bounded queue. While the queue has space, the relay forwards deltas unchanged. When the queue is full, the relay stops enqueuing deltas and merges new changes into a pending map from price level to latest quantity, together with the first and last sequence numbers it covers. When the connection becomes writable again, the relay sends the pending map as a single delta with that sequence range. The client applies it as a normal delta, so a slow client receives fewer intermediate updates instead of losing its connection.
+
+\subsection{Architectural Decisions and Trade-Offs}
+
+Separating the distribution path from the recovery path is intended to make the work of the origin independent of the number of disconnected clients. The cost is a new tier of relays that must be deployed and operated, and that becomes a failure point for its region, mitigated by the ability of clients to resume at another relay. Replicating the book at the relays introduces eventual consistency between the origin and each relay, whose replication lag adds to the staleness observed by clients. Storing the last sequence number per level and the tombstones increases the memory of each relay, and conflation trades the completeness of intermediate updates for the continuity of the connection.
+
+\subsection{Hypothesis}
+
+The hypothesis has two parts. First, the public Binance contract, simulated with real traffic replayed at 10x, remains degraded after the spike ends. Second, under the same conditions RelayBook is expected to keep the load of the origin independent of the number of disconnected clients, to bound the recovery cost of a client by the number of changed price levels, and to return to a healthy state without manual intervention. Either part may be refuted by the measurements.
+
+\section{Evaluation Metrics}
+
+Table~\ref{tab:metrics} lists the metrics selected to test the hypothesis. Each metric is defined as a fitness function with an initial threshold, so that the experiment can decide automatically whether a requirement holds. Relay capacity is reported as a measured value, since it defines the sizing of the relay tier.
+
+\begin{table}[t]
+\caption{Evaluation metrics}
+\label{tab:metrics}
+\centering
+\footnotesize
+\begin{tabular}{p{1.6cm}p{3.6cm}p{1.6cm}}
+\toprule
+Metric & Definition & Target \\
+\midrule
+Client availability & Share of client time with a valid book during the spike & $\geq 99\%$ \\
+Origin load sensitivity & $(L_{50} - L_{0}) / L_{0}$, where $L_x$ is the origin load with $x\%$ of clients disconnected & $< 5\%$ \\
+Full resync ratio & Reconnections that end in a full snapshot over all reconnections during the spike & $< 1\%$ \\
+Recovery payload & Bytes per resume at 1x, 5x and 10x message rate & Non-increasing with the rate \\
+Time to recover & Time from the end of the spike until 99\% of clients hold a valid book & $\leq 30$\,s, no manual action \\
+Staleness p99 & Delay between an update at the origin and its application at the client & $< 1$\,s \\
+Correctness & Resumed books whose checksum matches the origin book at the same sequence number & $100\%$ \\
+Relay capacity & Clients per relay before availability or staleness targets fail & Measured \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The first part of the hypothesis holds if, for the Binance contract, client availability after the spike stays below its value before the spike and the time to recover exceeds the observation window. The second part holds if RelayBook meets every target of Table~\ref{tab:metrics} under the same traffic.
+
+The planned scenario replays a recording of the Binance \texttt{depth} stream in three phases, five minutes at normal rate, five minutes at 10x with correlated disconnections of a share of the clients, and ten minutes at normal rate. Clients follow fast and slow network profiles. The same scenario is applied to RelayBook and to three baselines that reproduce the contracts of Binance, Kraken and Ably described in Section~\ref{sec:sota}.
 
 \section*{Use of AI Tools}
 
