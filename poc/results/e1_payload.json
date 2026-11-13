@@ -1,0 +1,459 @@
+{
+ "messages": 41113,
+ "trials": 46,
+ "correct": 46,
+ "summary": {
+  "10": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 45123.625,
+   "state_bytes": 15760.0,
+   "full_snapshot_share": 0.0
+  },
+  "30": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 151032.625,
+   "state_bytes": 31997.5,
+   "full_snapshot_share": 0.0
+  },
+  "50": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 258599.75,
+   "state_bytes": 38946.25,
+   "full_snapshot_share": 0.625
+  },
+  "100": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 553553.25,
+   "state_bytes": 42062.0,
+   "full_snapshot_share": 1.0
+  },
+  "300": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 1345018.0,
+   "state_bytes": 42062.0,
+   "full_snapshot_share": 1.0
+  },
+  "600": {
+   "snapshot_bytes": 42062.0,
+   "log_bytes": 3515520.8333333335,
+   "state_bytes": 42062.0,
+   "full_snapshot_share": 1.0
+  }
+ },
+ "rows": [
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 18678,
+   "state_bytes": 6120,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 14627,
+   "state_bytes": 4100,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 20218,
+   "state_bytes": 7060,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 57860,
+   "state_bytes": 24200,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 49565,
+   "state_bytes": 19940,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 127880,
+   "state_bytes": 38060,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 40316,
+   "state_bytes": 15340,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 10,
+   "seconds_at_1x": 1.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 31845,
+   "state_bytes": 11260,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 126653,
+   "state_bytes": 29220,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 202426,
+   "state_bytes": 39060,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 119750,
+   "state_bytes": 28360,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 192593,
+   "state_bytes": 37380,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 124564,
+   "state_bytes": 23000,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 143706,
+   "state_bytes": 30380,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 196040,
+   "state_bytes": 41760,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 30,
+   "seconds_at_1x": 3.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 102529,
+   "state_bytes": 26820,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 226220,
+   "state_bytes": 38440,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 292714,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 130692,
+   "state_bytes": 23560,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 267516,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 311678,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 215877,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 357719,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 50,
+   "seconds_at_1x": 5.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 266382,
+   "state_bytes": 39260,
+   "state_kind": "delta",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 555917,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 463102,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 868368,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 772128,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 475083,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 427952,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 474806,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 100,
+   "seconds_at_1x": 10.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 391070,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1286343,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1324732,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1242132,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 948161,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1939996,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1262377,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1448798,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 300,
+   "seconds_at_1x": 30.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 1307605,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 2181091,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 3879732,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 3983667,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 4198463,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 3543420,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  },
+  {
+   "missed_messages": 600,
+   "seconds_at_1x": 60.0,
+   "snapshot_bytes": 42062,
+   "log_bytes": 3306752,
+   "state_bytes": 42062,
+   "state_kind": "snapshot",
+   "correct": true
+  }
+ ]
+}

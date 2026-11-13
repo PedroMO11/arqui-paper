@@ -69,13 +69,20 @@ def main():
     sc = Scenario(**base)
     (RESULTS / f"e2_storm{tag}.json").write_text(json.dumps({"scenario": sc.__dict__, "rows": rows}, indent=1))
 
-    # Figura 1: libros válidos en el tiempo con capacidad 3x
+    np.savez_compressed(RESULTS / f"e2_traces{tag}.npz",
+                        **{f"{d}_{h}_{c}": v for (d, h, c), v in traces.items()})
+
+    # Figura 1: libros válidos en el tiempo, promedio por segundo
+    def per_second(v):
+        n = len(v) // 10
+        return v[: n * 10].reshape(n, 10).mean(axis=1)
+
     fig, axes = plt.subplots(1, 2, figsize=(7.16, 2.3), dpi=300)
-    t = np.arange(sc.ticks) * 0.1 / 60
+    t = np.arange(sc.ticks // 10) / 60
     for ax, h in zip(axes, (3, 10)):
         for d in DESIGNS:
-            ax.plot(t, traces[(d, h, 1.0)] * 100, color=COLORS[d], lw=0.9, label=LABELS[d])
-        ax.plot(t, traces[("binance", h, SNAPSHOT_COSTS[-1])] * 100, color=COLORS["binance"], lw=0.9, ls="--",
+            ax.plot(t, per_second(traces[(d, h, 1.0)]) * 100, color=COLORS[d], lw=0.8, label=LABELS[d])
+        ax.plot(t, per_second(traces[("binance", h, SNAPSHOT_COSTS[-1])]) * 100, color=COLORS["binance"], lw=0.8, ls="--",
                 label=f"Binance, snapshot cost {SNAPSHOT_COSTS[-1]:.0f}x")
         ax.axvspan(sc.pre * 0.1 / 60, (sc.pre + sc.spike) * 0.1 / 60, color="#999", alpha=0.15, lw=0)
         ax.set_title(f"Server capacity {h}x the normal stream load", fontsize=7.5)

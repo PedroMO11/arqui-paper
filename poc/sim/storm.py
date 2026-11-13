@@ -92,7 +92,10 @@ def run(design, sc, msg_bytes, g_curve, snapshot_bytes):
     pub_tick = np.repeat(np.arange(T), speeds)          # tick en que se publicó cada mensaje
     pub_tick = np.concatenate(([0], pub_tick))           # pos=0 -> tick 0
 
-    s1 = msg_bytes[: sc.pre].mean()                      # bytes por tick a 1x
+    # Carga normal: bytes por tick a 1x, promediando las fases antes y después del pico,
+    # porque la actividad del mercado cambia a lo largo de la grabación
+    post_start = sc.pre + sc.spike * sc.speed
+    s1 = np.concatenate((msg_bytes[: sc.pre], msg_bytes[post_start: idx_end[-1]])).mean()
     rates = np.where(rng.random(N) < sc.slow_share, sc.slow_rate, sc.fast_rate)
     group = np.arange(N) % sc.relays if design != "binance" else np.zeros(N, int)
     servers = 1 if design == "binance" else sc.relays
