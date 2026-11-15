@@ -12,7 +12,7 @@ pip install numpy matplotlib requests websockets
 python poc/recorder/record_depth.py --minutes 70
 ```
 
-Se suscribe al stream público `btcusdt@depth@100ms` de Binance USD-M Futures, toma un snapshot REST de 1000 niveles por lado y guarda cada mensaje en `poc/data/depth.jsonl.gz` (no se sube al repo). El escenario completo consume unos 65 minutos de grabación.
+Se suscribe al stream público `btcusdt@depth@100ms` de Binance USD-M Futures, toma un snapshot REST de 1000 niveles por lado y guarda cada mensaje en `poc/data/depth.jsonl.gz`. La grabación usada en el paper (13 de noviembre de 2026, 09:12 UTC-5, 70 min, 46 MB) está en el repo, así que los experimentos se pueden repetir sin volver a grabar. Una grabación nueva da números parecidos, pero no idénticos. El escenario completo consume unos 65 minutos de grabación.
 
 ## 2. Experimento 1, payload y correctness con datos reales
 

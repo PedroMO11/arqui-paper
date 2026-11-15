@@ -195,7 +195,7 @@ The hypothesis has two parts. First, the public Binance contract, simulated with
 
 \section{Evaluation Metrics}
 
-Table~\ref{tab:metrics} lists the metrics selected to test the hypothesis. Each metric corresponds to one non-functional requirement and is defined as a fitness function with an initial threshold, so that the experiment can decide automatically whether the requirement holds.
+Table~\ref{tab:metrics} lists the metrics selected to test the hypothesis. Each metric corresponds to one non-functional requirement and is defined as a fitness function with an initial threshold, so that the experiment can decide automatically whether the requirement holds. The results also report the load of the origin as supporting data, since it shows where the recovery work takes place, but it does not take part in the decision on the hypothesis.
 
 \begin{table}[t]
 \caption{Evaluation metrics}
@@ -225,9 +225,9 @@ A recorder subscribed to the public \texttt{btcusdt@depth@100ms} stream of Binan
 
 \subsection{Prototype and Simulator}
 
-The relay was implemented in Python following Algorithm~\ref{alg:resume}. It applies the recorded feed to a replica of the book, keeps the sequence number and the tombstone of every level, restricts each resume to the visible levels, replaces the delta by a snapshot when the delta is larger, and computes a CRC32 checksum over the ten best levels of each side. During its validation, a first version restricted the delta to the levels between the best price and the deepest visible level, which left removed levels on the other side of the best price in the client book. The checksum exposed the error, and the visible band was redefined as every level better than the deepest visible level.
+The relay was implemented in Python following Algorithm~\ref{alg:resume}. It applies the recorded feed to a replica of the book, keeps the sequence number and the tombstone of every level, restricts each resume to the visible levels, replaces the delta by a snapshot when the delta is larger, and computes a CRC32 checksum over the ten best levels of each side. During its validation, a first version restricted the delta to the levels between the best price and the deepest visible level, which left removed levels on the other side of the best price in the client book. The checksum exposed the error, and the visible band was redefined as every level better than the deepest visible level. The prototype does not implement the retention horizon $S_{min}$, so it keeps every tombstone and replaces a delta by a snapshot only because of its size.
 
-The reconnection storm was evaluated with a discrete-time simulator written in Python with NumPy, an approach close to the simulation-based analysis of metastable failures proposed by Isaacs et al. \cite{isaacs2025}. Each tick lasts 100\,ms and publishes the recorded messages that correspond to the current phase. Every server has an egress capacity in bytes per tick that is shared among its flows with max-min fairness, and every client has its own downlink rate. The recovery work of each design follows Table~\ref{tab:recovery}, and the payload of a state-based resume is obtained from the number of distinct visible levels changed in the recording for the same number of missed messages. Table~\ref{tab:params} lists the parameters. The capacity of each server is expressed as a multiple $h$ of the load of the stream at normal rate for the clients it serves, and is swept between 1.5 and 15. Since the cost of generating a REST snapshot at the origin is not public, it is swept at 1, 10 and 50 times the cost of sending its bytes.
+The reconnection storm was evaluated with a discrete-time simulator written in Python with NumPy, an approach close to the simulation-based analysis of metastable failures proposed by Isaacs et al. \cite{isaacs2025}. Each tick lasts 100\,ms and publishes the recorded messages that correspond to the current phase. Every server has an egress capacity in bytes per tick that is shared among its flows with max-min fairness, and every client has its own downlink rate. The recovery work of each design follows Table~\ref{tab:recovery}, and the payload of a state-based resume is obtained from the number of distinct visible levels changed in the recording for the same number of missed messages. The Ably-style baseline runs on the same tier of regional relays as RelayBook, so the comparison between both isolates the form of the resume. Table~\ref{tab:params} lists the parameters. The capacity of each server is expressed as a multiple $h$ of the load of the stream at normal rate for the clients it serves, and is swept between 1.5 and 15. Since the cost of generating a REST snapshot at the origin is not public, it is swept at 1, 10 and 50 times the cost of sending its bytes.
 
 \begin{table}[t]
 \caption{Simulation parameters}
@@ -268,9 +268,9 @@ The load of the origin follows directly from the recording. Under the Binance co
 \toprule
 Clients & Binance origin & Relays & RelayBook origin \\
 \midrule
-$10^4$ & 0.55\,GB/s & 2 & 0.2\,MB/s \\
-$10^5$ & 5.5\,GB/s & 14 & 1.3\,MB/s \\
-$10^6$ & 55\,GB/s & 140 & 13\,MB/s \\
+$10^4$ & 0.57\,GB/s & 2 & 0.2\,MB/s \\
+$10^5$ & 5.7\,GB/s & 14 & 1.4\,MB/s \\
+$10^6$ & 57\,GB/s & 140 & 14\,MB/s \\
 \bottomrule
 \end{tabular}
 \end{table}
