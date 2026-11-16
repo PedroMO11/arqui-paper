@@ -1,9 +1,9 @@
-"""Genera paper/figures/architecture.png, el diagrama del paper.
+"""Genera paper/img/architecture.png, el diagrama del paper.
 
 Panel (a): contrato público de Binance, donde la recuperación sube al origen.
 Panel (b): RelayBook, donde la recuperación termina en el relay de cada región.
 
-    python paper/figures/build_architecture.py
+    python paper/img/build_architecture.py
 """
 
 from pathlib import Path

@@ -10,7 +10,7 @@
 \usepackage{array}
 \usepackage{hyperref}
 \usepackage[ruled,linesnumbered]{algorithm2e}
-\graphicspath{{figures/}}
+\graphicspath{{img/}}
 
 \begin{document}
 
@@ -339,10 +339,6 @@ The results are subject to several threats. The simulator models network capacit
 \section{Conclusion}
 
 RelayBook moves the recovery of market data clients from the origin to regional relays and resumes clients from the state of the book. On real Binance traffic, the relay recovered every client with a correct book, and state-based resume reduced the recovery payload for short disconnections and by a large factor against a log-based resume. In a simulated reconnection storm, RelayBook returned to a healthy state immediately and kept the origin load independent of disconnections, while the public Binance contract failed to recover only when snapshots were expensive for the origin. The hypothesis was refuted for the share of full resynchronizations during a spike, which shows that the benefit of the architecture lies in where recovery happens rather than in the size of each recovery. Future work includes measuring the cost of snapshots, evaluating several instruments and deploying relays over a real network.
-
-\section*{Use of AI Tools}
-
-Claude (Anthropic) was used to support the literature search and the drafting of this document. The authors selected the problem, verified the sources and made the final decisions.
 
 \bibliographystyle{IEEEtran}
 \bibliography{referencias}
