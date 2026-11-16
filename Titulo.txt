@@ -1,0 +1,1 @@
+Propuesta de Mejora de la Disponibilidad del Market Data de Binance ante Reconnection Storms mediante la Arquitectura RelayBook con State‑Based Resume

@@ -1,3 +1,4 @@
 material/
 poc/results/*_quick*
 __pycache__/
+docs/
