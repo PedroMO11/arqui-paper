@@ -17,10 +17,8 @@
   snapshot tenía 2 000 niveles y pesaba 41 KB. Sobre esa grabación
   construimos un prototipo del relay que aplica cada delta y guarda la
   secuencia y la lápida de cada nivel. Lo validamos con 46 reconexiones al
-  azar: en las 46 el libro del cliente quedó idéntico al del relay. Y una
-  anécdota útil: la primera versión dejaba niveles fantasma al otro lado
-  del precio, y fue el checksum el que lo detectó. O sea, la verificación
-  que proponemos funciona.}
+  azar: en las 46 el libro del cliente quedó idéntico al del relay, tanto
+  en el checksum como en los 100 mejores niveles de cada lado.}
 \end{frame}
 
 \begin{frame}{Paso 2: ¿cuánto pesa recuperar a un cliente?}
