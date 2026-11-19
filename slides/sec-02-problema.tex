@@ -1,45 +1,45 @@
-% Pedro. S6--S8. El problema: tormenta de reconexiones, falla metaestable
-% y qué evidencia hay (y no hay) en Binance.
+% Pedro. S6--S8. Tormenta de reconexiones, falla metaestable y evidencia
+% disponible sobre Binance.
 \section{El problema}
-\begin{frame}{El problema: una tormenta de reconexiones}
+\begin{frame}{Tormenta de reconexiones}
   \centering\input{fig/f05-tormenta}
   \takeaway{La recuperación compite con el stream por la misma capacidad.}
-  \note{Pedro. 3:35--4:30 (55 s). Ahora, el problema. Imaginen un momento de mucha
-  volatilidad: el bitcoin cae fuerte y los mensajes se multiplican; en nuestro
-  experimento, por diez. Los clientes con internet lento no alcanzan a recibir
-  todo y se les corta la conexión. Según la receta, cada uno pide el libro
-  completo, y son miles a la vez. El servidor central tiene que mandar el
-  stream, que ya va a diez veces, y además miles de snapshots. Se satura y
-  retrasa el stream; eso atrasa a más clientes, que también se cortan y piden
-  snapshot. Es un bucle, y quien reintenta mucho termina baneado. La
-  recuperación compite con el stream por la misma capacidad.}
+  \note{Pedro. 3:35--4:30 (55 s). El problema aparece durante un pico de
+  volatilidad, cuando la cantidad de mensajes se multiplica, por diez en el
+  experimento. Los clientes con conexión lenta no alcanzan a recibir el stream
+  y pierden la conexión. Según el procedimiento, cada uno pide el libro
+  completo, y son miles a la vez. El servidor central debe enviar el stream a
+  diez veces su ritmo y además miles de snapshots, por lo que se satura y
+  retrasa el stream. Ese retraso atrasa a más clientes, que también se
+  desconectan y piden snapshot, lo que forma un bucle. Además, los clientes
+  que reintentan demasiado reciben un ban. En consecuencia, la recuperación
+  compite con el stream por la misma capacidad.}
 \end{frame}
 
-\begin{frame}{¿Por qué es grave? La falla metaestable}
+\begin{frame}{Falla metaestable}
   \centering\input{fig/f06-metaestable}
-  \takeaway{Metaestable: el pico ya pasó, pero el sistema sigue caído.}
-  \source{Esquema cualitativo, no son mediciones. Isaacs et al., \emph{Analyzing Metastable Failures}, HotOS 2025.}
-  \note{Pedro. 4:30--5:15 (45 s). ¿Por qué es grave? Porque este bucle tiene nombre
-  en la literatura: falla metaestable. A la izquierda, una sobrecarga normal:
-  durante el pico los clientes pierden su libro, pero cuando termina, el
-  sistema se recupera solo. A la derecha, una falla metaestable: el pico
-  termina, la carga vuelve a lo normal, y el sistema sigue caído, porque lo
-  mantiene un efecto sostenedor, aquí los reintentos de snapshots. Estos
-  gráficos son un esquema, no mediciones. La referencia es Isaacs y otros,
-  2025, que proponen estudiar estas fallas con modelos y simulación, y eso es
-  lo que hicimos.}
+  \takeaway{En una falla metaestable el sistema sigue caído después del pico.}
+  \source{Esquema cualitativo basado en Isaacs et al., \emph{Analyzing Metastable Failures}, HotOS 2025.}
+  \note{Pedro. 4:30--5:15 (45 s). Este bucle corresponde a una falla metaestable. A
+  la izquierda, en una sobrecarga normal, los clientes pierden su libro
+  durante el pico y el sistema se recupera cuando el pico termina. A la
+  derecha, en una falla metaestable, la carga vuelve a lo normal y el sistema
+  sigue caído, porque un efecto sostenedor, en este caso los retries de
+  snapshots, mantiene la saturación. Los gráficos son un esquema cualitativo.
+  La referencia es Isaacs et al., 2025, que proponen estudiar estas fallas con
+  modelos y simulación, enfoque que sigue este trabajo.}
 \end{frame}
 
-\begin{frame}{¿Le pasa esto a Binance de verdad?}
+\begin{frame}{Evidencia en Binance}
   \centering\input{fig/f07-evidencia}
-  \takeaway{Afirmamos que el contrato \emph{tiene la estructura} del problema, no que Binance ya falló.}
-  \note{Pedro. 5:15--6:00 (45 s). ¿Le pasa esto a Binance de verdad? Hay indicios.
-  En el foro oficial de Binance, usuarios reportan conexiones cerradas con el
-  código 1006 en momentos de mucho trading, y muchos streams cerrándose a la
-  vez. Y Tardis.dev, un proveedor de datos, reconstruye el libro con el
-  snapshot REST cuando pierde un mensaje. Pero no hay ningún post-mortem
-  público que atribuya una caída a este bucle, y no conocemos las mitigaciones
-  internas de Binance ni cuánto le cuesta generar un snapshot. Por eso solo
-  afirmamos que el contrato tiene la estructura del problema, y lo pusimos a
-  prueba con una simulación.}
+  \takeaway{El contrato público de Binance tiene la estructura del problema.}
+  \note{Pedro. 5:15--6:00 (45 s). Respecto a Binance existen indicios. En el foro
+  oficial, usuarios reportan conexiones cerradas con el código 1006 durante
+  trading intenso y muchos streams de profundidad cerrándose al mismo tiempo.
+  Además, Tardis.dev, un proveedor de datos, reconstruye el libro con el
+  snapshot REST cuando pierde un mensaje. Sin embargo, ningún post-mortem
+  público atribuye una caída a este bucle, y las mitigaciones internas de
+  Binance y el costo de generar un snapshot no son públicos. Por eso el
+  trabajo solo sostiene que el contrato tiene la estructura del problema y lo
+  evalúa con una simulación.}
 \end{frame}

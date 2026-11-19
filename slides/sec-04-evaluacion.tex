@@ -1,7 +1,7 @@
-% Nicolás. S13--S15. Cómo lo probamos: datos reales, prototipo del relay,
+% Nicolás. S13--S15. Evaluación con datos reales, prototipo del relay,
 % experimento de tamaño y simulación de la tormenta.
-\section{Cómo lo probamos}
-\begin{frame}{Paso 1: datos reales y un prototipo del relay}
+\section{Evaluación}
+\begin{frame}{Datos reales y prototipo del relay}
   \centering
   \stat{70 min}{de BTC/USDT real}\hfill
   \stat{41\,113}{mensajes, \textbf{0} perdidos}\hfill
@@ -10,56 +10,58 @@
   \stat{41\,KB}{snapshot, 2\,000 niveles}\par
   \medskip
   \input{fig/f11-prototipo}
-  \note{Nicolás. 10:40--11:30 (50 s). Para probarlo no inventamos el tráfico.
-  Grabamos 70 minutos del stream público de profundidad de Binance Futures
-  para BTC/USDT, el 13 de noviembre: 41 113 mensajes, sin perder ninguno.
-  Llegan casi diez por segundo, y cada uno cambia en promedio 275 niveles. El
-  snapshot tenía 2 000 niveles y pesaba 41 KB. Con esa grabación construimos
-  un prototipo del relay, que aplica cada delta y guarda por nivel el último
-  mensaje y las lápidas. Lo validamos con 46 reconexiones al azar: en las 46,
-  el libro del cliente quedó idéntico al del relay, tanto en el checksum como
-  en los 100 mejores niveles de cada lado.}
+  \note{Nicolás. 10:40--11:30 (50 s). La evaluación usa tráfico real. Se grabaron 70
+  minutos del stream público de profundidad de Binance Futures para BTC/USDT
+  el 13 de noviembre, con 41 113 mensajes y ninguno perdido. Llegan casi diez
+  mensajes por segundo y cada uno cambia en promedio 275 niveles. El snapshot
+  tenía 2 000 niveles y pesaba 41 KB. Sobre esa grabación se construyó un
+  prototipo del relay que aplica cada delta y guarda por nivel el último
+  mensaje y los tombstones. En la validación con 46 reconexiones al azar, el
+  libro del cliente quedó idéntico al del relay en los 46 casos, tanto en el
+  checksum como en los 100 mejores niveles de cada lado.}
 \end{frame}
 
-\begin{frame}{Paso 2: ¿cuánto pesa recuperar a un cliente?}
+\begin{frame}{Tamaño de una recuperación}
   \begin{columns}[c]
     \begin{column}{0.6\textwidth}
       \centering\input{fig/f12-payload}
     \end{column}
     \begin{column}{0.38\textwidth}\small
-      Medido sobre la grabación, a ritmo normal:\par\medskip
-      \textbf{1\,s fuera:} 15\,KB vs 41\,KB del snapshot, \textbf{63\% menos}.\par\medskip
-      \textbf{Frente a Ably:} entre \textbf{3 y 84 veces} menos; Ably llega a 3.4\,MB tras 60\,s.\par\medskip
-      \textbf{Desde 5--10\,s:} cambiaron tantos niveles que el relay manda el snapshot.
+      Mediciones sobre la grabación a ritmo normal.\par\medskip
+      Tras 1\,s de corte, la recuperación pesa 15\,KB frente a 41\,KB del snapshot, \textbf{63\% menos}.\par\medskip
+      Frente al estilo Ably pesa entre \textbf{3 y 84 veces} menos, ya que Ably llega a 3.4\,MB tras 60\,s.\par\medskip
+      Desde 5 a 10\,s de corte cambian tantos niveles que el relay envía el snapshot.
     \end{column}
   \end{columns}
-  \takeaway{Reanudar por estado gana en cortes breves y siempre gana a reenviar mensajes.}
-  \note{Nicolás. 11:30--12:30 (60 s). Primer experimento: ¿cuánto pesa recuperar a
-  un cliente? Sobre la grabación, a ritmo normal, desconectamos clientes en
-  momentos al azar, por 1 a 60 segundos, y medimos cuánto hay que mandarle con
-  cada diseño. El gráfico está en escala logarítmica. La línea roja punteada
-  es el snapshot de Binance: siempre 41 KB. La gris es el estilo Ably: crece
-  porque reenvía cada mensaje, y llega a 3.4 MB tras un minuto. La verde es
-  nuestro resume por estado: tras un segundo fuera, 15 KB, un 63 \% menos que
-  el snapshot. Entre 5 y 10 segundos ya cambiaron tantos niveles que el relay
-  manda el snapshot, así que nunca pagamos más que el libro. Frente a Ably,
-  entre 3 y 84 veces menos. Funciona porque muchos mensajes vuelven a tocar
-  los mismos niveles: en 10 segundos llegan unas 27 000 actualizaciones, pero
-  solo a unos 2 800 niveles distintos.}
+  \takeaway{Reanudar por estado reduce el payload en cortes breves y frente a reenviar mensajes.}
+  \note{Nicolás. 11:30--12:30 (60 s). El primer experimento mide cuánto pesa
+  recuperar a un cliente. Sobre la grabación a ritmo normal se desconectan
+  clientes en momentos al azar durante 1 a 60 segundos y se mide cuánto debe
+  enviarse con cada diseño, en escala logarítmica. La línea roja punteada es
+  el snapshot de Binance, siempre de 41 KB. La línea gris es el resume estilo
+  Ably, que crece porque reenvía cada mensaje y llega a 3.4 MB tras un minuto.
+  La línea verde es el state-based resume, con 15 KB tras un segundo de corte,
+  un 63 \% menos que el snapshot. Entre 5 y 10 segundos cambian tantos niveles
+  que el relay envía el snapshot, por lo que el costo nunca supera al libro.
+  Frente al estilo Ably, el payload es entre 3 y 84 veces menor. La reducción
+  se explica porque muchos mensajes vuelven a tocar los mismos niveles, ya que
+  en 10 segundos llegan unas 27 000 actualizaciones sobre solo unos 2 800
+  niveles distintos.}
 \end{frame}
 
-\begin{frame}{Paso 3: simulamos la tormenta con el tráfico real}
+\begin{frame}{Simulación de la tormenta con tráfico real}
   \centering\input{fig/f13-simulacion}
-  \takeaway{Capacidad y costo de Binance son desconocidos: probamos varios valores.}
-  \note{Nicolás. 12:30--13:25 (55 s). Segundo experimento, el central: simular la
+  \takeaway{La capacidad y el costo del snapshot en Binance se prueban con varios valores.}
+  \note{Nicolás. 12:30--13:25 (55 s). El segundo experimento, el central, simula la
   tormenta. El tiempo avanza en pasos de 100 milisegundos y cada servidor
-  reparte su capacidad entre sus conexiones. Reproducimos la grabación en tres
-  fases: cinco minutos normales, cinco a diez veces y diez normales, para ver
-  si el sistema se recupera solo. Al inicio del pico se desconecta el 30 \% de
-  los 2 000 clientes, y el 30 \% tiene internet lento. Si una conexión acumula
-  1 MB pendiente, Binance y Ably la cortan; RelayBook aplica conflation desde
-  los 256 KB. El estilo Ably corre sobre los mismos relays, así que solo
-  cambia cómo reanuda. Dos cosas no las conocemos de Binance: cuánta capacidad
-  le sobra y cuánto le cuesta generar un snapshot. Así que probamos varios
-  valores: seis capacidades por tres costos, 18 corridas.}
+  reparte su capacidad entre sus conexiones. La grabación se reproduce en tres
+  fases, cinco minutos a ritmo normal, cinco minutos a diez veces y diez
+  minutos a ritmo normal, para observar si el sistema se recupera solo. Al
+  inicio del pico se desconecta el 30 \% de los 2 000 clientes, y el 30 \% del
+  total tiene conexión lenta. Si una conexión acumula 1 MB pendiente, Binance
+  y Ably la cortan, mientras que RelayBook aplica conflation desde los 256 KB.
+  El estilo Ably corre sobre los mismos relays, de modo que solo difiere en la
+  forma de reanudar. La capacidad sobrante de Binance y el costo de generar un
+  snapshot no son públicos, por lo que se prueban seis capacidades y tres
+  costos, en total 18 corridas.}
 \end{frame}

@@ -2,7 +2,7 @@
 % clientes vuelve a tener un libro válido tras el pico (observación: 10 min).
 \begin{tikzpicture}[x=1cm,y=1cm]
   \path[use as bounding box] (0,0.05) rectangle (13.5,4.6);
-  \node[anchor=west,font=\small\bfseries] at (0,4.4) {Binance: tiempo para recuperarse después del pico};
+  \node[anchor=west,font=\small\bfseries] at (0,4.4) {Tiempo de recuperación de Binance después del pico};
   % Encabezados
   \node[font=\scriptsize\bfseries,anchor=east] at (2.0,3.85) {capacidad $\to$};
   \foreach \c/\h in {0/1.5,1/2,2/3,3/5,4/10,5/15}
@@ -29,7 +29,7 @@
     \tikz\fill[colWake!75] (0,0) rectangle (0.35,0.2); no se recupera en 10\,min};
   % Lectura
   \node[anchor=north west,font=\scriptsize,text width=3.7cm,align=left] at (9.6,3.95) {%
-    \textbf{\color{colWake}5 de 18} corridas no se recuperan: snapshot caro y poca capacidad sobrante.\par\medskip
-    El origen gastó hasta \textbf{146\,GB} en snapshots que los clientes ya habían \textbf{abandonado} al reintentar: el efecto que sostiene la falla.\par\medskip
+    \textbf{\color{colWake}5 de 18} corridas no se recuperan, todas con snapshot caro y poca capacidad sobrante.\par\medskip
+    El origen gastó hasta \textbf{146\,GB} en snapshots que los clientes ya habían \textbf{abandonado} al reintentar, efecto que sostiene la falla.\par\medskip
     Con snapshot barato, siempre se recupera en 11\,s o menos.};
 \end{tikzpicture}

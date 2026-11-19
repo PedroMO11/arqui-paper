@@ -1,24 +1,24 @@
 % S15. Escenario de la simulación de la tormenta y qué se barrió.
 \begin{tikzpicture}[x=1cm,y=1cm]
   \path[use as bounding box] (0,0.15) rectangle (13.5,4.7);
-  \node[font=\scriptsize] at (6.75,4.5) {Mismo tráfico para tres diseños: \textbf{Binance} $\cdot$ \textbf{estilo Ably} (ventana de 2 min) $\cdot$ \textbf{RelayBook}};
+  \node[font=\scriptsize] at (6.75,4.5) {Mismo tráfico para \textbf{Binance}, \textbf{estilo Ably} (ventana de 2 min) y \textbf{RelayBook}};
   % Línea de tiempo: 1 cm = 1 min 40 s
   \draw[draw=colNeutro,fill=colNeutro!8] (0.75,3.6) rectangle (3.75,4.1);
   \draw[draw=colWake,fill=colWake!18] (3.75,3.6) rectangle (6.75,4.1);
   \draw[draw=colNeutro,fill=colNeutro!8] (6.75,3.6) rectangle (12.75,4.1);
   \node[font=\scriptsize] at (2.25,3.85) {5 min a 1$\times$};
-  \node[font=\scriptsize\bfseries,text=colWake] at (5.25,3.85) {5 min a 10$\times$: el pico};
-  \node[font=\scriptsize] at (9.75,3.85) {10 min a 1$\times$: ¿se recupera solo?};
+  \node[font=\scriptsize\bfseries,text=colWake] at (5.25,3.85) {5 min a 10$\times$, pico};
+  \node[font=\scriptsize] at (9.75,3.85) {10 min a 1$\times$, recuperación};
   \draw[flow,colWake] (3.75,3.0) -- (3.75,3.55);
   \node[font=\scriptsize,text=colWake,anchor=west] at (3.85,3.15) {el 30\% de los clientes se desconecta y vuelve a los 1--5\,s};
   % Parámetros
   \tikzset{par/.style={box,font=\scriptsize,text width=2.9cm}}
   \node[par] at (1.65,2.2) {\textbf{2\,000 clientes}\\3 relays};
-  \node[par] at (5.05,2.2) {\textbf{70\%} rápidos: 2\,MB/s\\\textbf{30\%} lentos: 80\,KB/s};
-  \node[par] at (8.45,2.2) {\textbf{Cola de 1\,MB}\\Binance y Ably: cortan\\RelayBook: conflation\\desde 256\,KB};
-  \node[par] at (11.85,2.2) {\textbf{Reintentos}\\5\,s sin datos: reconecta\\10\,s sin libro: reintenta};
+  \node[par] at (5.05,2.2) {\textbf{70\%} rápidos a 2\,MB/s\\\textbf{30\%} lentos a 80\,KB/s};
+  \node[par] at (8.45,2.2) {\textbf{Cola de 1\,MB}\\Binance y Ably cortan\\conflation en RelayBook\\desde 256\,KB};
+  \node[par] at (11.85,2.2) {\textbf{Retries}\\reconecta tras 5\,s sin datos\\reintenta tras 10\,s};
   % Barrido
-  \node[font=\scriptsize\bfseries,text=colAcento] at (6.75,1.35) {Lo que no conocemos de Binance lo probamos con varios valores: 6 $\times$ 3 = 18 corridas};
+  \node[font=\scriptsize\bfseries,text=colAcento] at (6.75,1.35) {Parámetros desconocidos de Binance probados con varios valores, 6 $\times$ 3 = 18 corridas};
   \node[acento,font=\scriptsize,text width=5.9cm] at (3.35,0.6) {\textbf{Capacidad del servidor}\\de 1.5$\times$ a 15$\times$ la carga normal};
   \node[acento,font=\scriptsize,text width=5.9cm] at (10.15,0.6) {\textbf{Costo de generar un snapshot}\\1$\times$, 10$\times$ y 50$\times$ lo que cuesta enviarlo};
 \end{tikzpicture}

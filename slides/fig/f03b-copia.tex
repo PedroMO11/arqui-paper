@@ -11,9 +11,9 @@
     fila/.style={font=\scriptsize\bfseries,anchor=west},
   }
   % ---------- Definiciones ----------
-  \node[def] at (0.0,5.45) {\textbf{Snapshot}: foto completa del libro en un momento (en nuestros datos, 2\,000 niveles, 41\,KB).};
-  \node[def] at (4.6,5.45) {\textbf{Delta}: mensaje con solo los niveles que cambiaron y su valor nuevo.};
-  \node[def] at (9.2,5.45) {\textbf{Número de secuencia}: cada delta viene numerado en orden: \#1001, \#1002, \ldots};
+  \node[def] at (0.0,5.45) {El \textbf{snapshot} es la foto completa del libro en un momento, con 2\,000 niveles y 41\,KB en la grabación.};
+  \node[def] at (4.6,5.45) {Un \textbf{delta} contiene solo los niveles que cambiaron, con su valor nuevo.};
+  \node[def] at (9.2,5.45) {Cada delta lleva un \textbf{número de secuencia} en orden, como \#1001 y \#1002.};
   % ---------- Fila 1: llegan todos ----------
   \node[fila,text=colReq] at (0.0,4.3) {Si llegan todos los mensajes};
   \node[libro,acento] (s) at (1.2,3.25) {\textbf{Snapshot \#1000}\\[1pt]
@@ -35,11 +35,11 @@
   \node[delta] (e3) at (7.2,0.95) {\textbf{\#1003}\\66\,999\\$\to$ 0\\(se borra)};
   \node[libro,malo] (w) at (9.6,0.95) {\textbf{Copia del cliente}\\[1pt]
     \begin{tabular}{@{}l@{\ \ }r@{}}\pv{67\,002}&0.5\\\pv{67\,001}&1.0\\\pc{67\,000}&\textbf{1.2} \xmark\\\pc{66\,999}&---\end{tabular}};
-  \node[malo,font=\scriptsize,text width=1.9cm] (bad) at (12.25,0.95) {dice 1.2, el real es 1.5: \textbf{no confiable}};
+  \node[malo,font=\scriptsize,text width=1.9cm] (bad) at (12.25,0.95) {dice 1.2 y el real es 1.5, \textbf{no confiable}};
   \draw[flow] (s') -- (e1);
   \draw[flow,colWake,dashed] (e1) -- (e2);
   \draw[flow,colWake,dashed] (e2) -- (e3);
   \draw[flow] (e3) -- (w);
   \draw[flow,colWake] (w) -- (bad);
-  \node[font=\scriptsize,text=colWake,anchor=north] at (5.3,0.05) {después del \#1001 llegó el \#1003: el cliente sabe que perdió uno};
+  \node[font=\scriptsize,text=colWake,anchor=north] at (5.3,0.05) {el \#1003 llega después del \#1001, así que el cliente detecta la pérdida};
 \end{tikzpicture}

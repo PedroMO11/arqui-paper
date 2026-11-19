@@ -2,13 +2,13 @@
 \begin{tikzpicture}[x=1cm,y=1cm]
   \path[use as bounding box] (0,0.1) rectangle (13.5,4.6);
   \tikzset{item/.style={box,font=\scriptsize,text width=5.7cm,align=left,anchor=west}}
-  \node[anchor=west,font=\small\bfseries] at (0.1,4.35) {Lo que sí hay: indicios};
+  \node[anchor=west,font=\small\bfseries] at (0.1,4.35) {Indicios disponibles};
   \node[item] at (0.1,3.45) {Usuarios del \textbf{foro oficial} de Binance reportan conexiones cerradas con el código \textbf{1006} durante trading intenso.};
   \node[item] at (0.1,2.3) {También reportan \textbf{muchos streams de profundidad} cerrándose al mismo tiempo.};
   \node[item] at (0.1,1.15) {\textbf{Tardis.dev}, proveedor de datos, reconstruye el libro con el \textbf{snapshot REST} cuando pierde un mensaje.};
   \draw[colNeutro!40] (6.75,0.15) -- (6.75,4.55);
-  \node[anchor=west,font=\small\bfseries,text=colWake] at (7.1,4.35) {Lo que no hay};
+  \node[anchor=west,font=\small\bfseries,text=colWake] at (7.1,4.35) {Información no pública};
   \node[item,malo,align=left] at (7.1,3.45) {Ningún \textbf{post-mortem público} de Binance atribuye una caída a este bucle.};
-  \node[item,malo,align=left] at (7.1,2.3) {No conocemos sus \textbf{mitigaciones internas} ni su capacidad real.};
-  \node[item,malo,align=left] at (7.1,1.15) {No sabemos \textbf{cuánto le cuesta generar un snapshot}: lo variamos en la simulación.};
+  \node[item,malo,align=left] at (7.1,2.3) {Sus \textbf{mitigaciones internas} y su capacidad real no son públicas.};
+  \node[item,malo,align=left] at (7.1,1.15) {El \textbf{costo de generar un snapshot} tampoco es público, por lo que la simulación prueba varios valores.};
 \end{tikzpicture}

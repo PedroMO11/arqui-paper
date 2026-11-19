@@ -3,7 +3,7 @@
   \path[use as bounding box] (0,0.05) rectangle (13.5,4.6);
   \tikzset{rl/.style={font=\scriptsize,text width=1.2cm,inner sep=2pt}}
   % ---------------- Diagrama ----------------
-  \node[acento,font=\scriptsize,text width=3.6cm] (or) at (3.3,4.05) {\textbf{Origen = líder}\\numera cada mensaje};
+  \node[acento,font=\scriptsize,text width=3.6cm] (or) at (3.3,4.05) {\textbf{Origen (líder)}\\numera cada mensaje};
   \draw[colNeutro!60,rounded corners=3pt] (0.05,0.1) rectangle (3.2,2.95);
   \draw[colNeutro!60,rounded corners=3pt] (3.45,0.1) rectangle (6.6,2.95);
   \node[font=\scriptsize\bfseries] at (1.62,2.72) {Región A};
@@ -13,7 +13,7 @@
   \node[bueno,rl] (b1) at (4.25,1.85) {Relay 3\\sano};
   \node[bueno,rl] (b2) at (5.8,1.85) {Relay 4\\sano};
   \foreach \r in {a1,a2,b1,b2} \draw[flow,colAcento] (or.south) -- (\r.north);
-  \node[font=\tiny,text=colAcento,fill=white,inner sep=1pt] at (3.3,3.25) {feed = log de replicación};
+  \node[font=\tiny,text=colAcento,fill=white,inner sep=1pt] at (3.3,3.25) {feed como log de replicación};
   \node[cliente] (cl) at (2.4,0.55) {cliente};
   \draw[colWake,dashed] (a2.south) -- (cl.north);
   \draw[rec,colReq] (cl.west) to[out=180,in=270] node[pos=0.35,below,font=\tiny,text=colReq] {reanuda aquí} (a1.south);
@@ -23,9 +23,9 @@
   }
   % ---------------- Mecanismos ----------------
   \tikzset{mec/.style={box,font=\scriptsize,text width=6.2cm,align=left,anchor=west}}
-  \node[mec] at (6.95,4.15) {\textbf{1. Un solo orden:} solo el origen numera; todos aplican lo mismo.};
-  \node[mec] at (6.95,3.25) {\textbf{2. Lag acotado:} si un relay se atrasa $>$\,500\,ms, sus clientes van a otro relay.};
-  \node[mec] at (6.95,2.35) {\textbf{3. Gaps:} redirige o espera el snapshot del feed (cada 1\,s); nunca pide al origen.};
-  \node[mec] at (6.95,1.45) {\textbf{4. Checksum} de los 10 mejores niveles: detecta copias que divergen.};
-  \node[mec,bueno,align=left] at (6.95,0.55) {\textbf{5. Conflation:} al cliente lento no se le corta; recibe solo el último valor.};
+  \node[mec] at (6.95,4.15) {\textbf{1.} Solo el origen numera, así que todos los relays aplican lo mismo en el mismo orden.};
+  \node[mec] at (6.95,3.25) {\textbf{2.} Si el lag de un relay supera 500\,ms, sus clientes pasan a otro relay.};
+  \node[mec] at (6.95,2.35) {\textbf{3.} Ante un gap, el relay redirige o espera el snapshot que el feed envía cada 1\,s.};
+  \node[mec] at (6.95,1.45) {\textbf{4.} Un checksum de los 10 mejores niveles detecta copias divergentes.};
+  \node[mec,bueno,align=left] at (6.95,0.55) {\textbf{5.} Con conflation, el cliente lento sigue conectado y recibe solo el último valor.};
 \end{tikzpicture}
