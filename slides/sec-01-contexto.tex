@@ -56,16 +56,17 @@
   confiable.}
 \end{frame}
 
-\begin{frame}{Recuperación en el contrato actual de Binance}
+\begin{frame}{Baseline de recuperación en Binance}
   \centering\input{fig/f04-contrato}
   \takeaway{Sin reenvío de mensajes perdidos, un corte de 1\,s exige el libro completo.}
   \source{Documentación oficial de Binance, \emph{How to manage a local order book correctly}.}
-  \note{Pedro. 2:55--3:35 (40 s). Binance documenta un procedimiento en tres pasos.
-  Primero, el cliente abre un WebSocket, una conexión persistente que empuja
-  los deltas. Luego pide el snapshot por REST al servidor central y aplica los
-  deltas encima. Ante un salto en la secuencia o un corte, el cliente descarta
-  su libro y vuelve a pedir el snapshot completo. Ese endpoint tiene rate
-  limit, con error 429 ante exceso de peticiones y 418, un ban, si el cliente
-  insiste. Como el stream no reenvía los mensajes perdidos, un corte de un
-  segundo o de un minuto cuesta el libro entero.}
+  \note{Pedro. 2:55--3:35 (40 s). El baseline es el procedimiento de recuperación
+  que Binance documenta, en tres pasos. Primero, el cliente abre un WebSocket,
+  una conexión persistente que empuja los deltas. Luego pide el snapshot por
+  REST al servidor central y aplica los deltas encima. Ante un salto en la
+  secuencia o un corte, el cliente descarta su libro y vuelve a pedir el
+  snapshot completo. Ese endpoint tiene rate limit, con error 429 ante exceso
+  de peticiones y 418, un ban, si el cliente insiste. Como el stream no
+  reenvía los mensajes perdidos, un corte de un segundo o de un minuto cuesta
+  el libro entero.}
 \end{frame}

@@ -1,10 +1,10 @@
-% Pedro S9--S10 (relays y state-based resume). Nicolás S11--S12 (réplicas por
+% Pedro S10--S11 (relays y state-based resume). Nicolás S12--S13 (réplicas por
 % región, hipótesis y métricas).
 \section{La propuesta}
 \begin{frame}{RelayBook con relays regionales}
   \centering\input{fig/f08-arquitectura}
   \takeaway{La primera idea separa la \emph{distribución} del stream de la \emph{recuperación}.}
-  \note{Pedro. 6:00--7:05 (65 s). La propuesta, RelayBook, se basa en tres ideas, y
+  \note{Pedro. 6:45--7:50 (65 s). La propuesta, RelayBook, se basa en tres ideas, y
   la primera aparece en esta figura. A la izquierda, en Binance el mismo
   servidor central reparte el stream a todos los clientes y atiende cada
   recuperación, marcadas con flechas rojas, de modo que todas las reconexiones
@@ -21,7 +21,7 @@
   \centering\input{fig/f09-resume}
   \takeaway{El relay envía el valor actual de cada nivel que cambió desde el corte.}
   \source{Si los cambios pesan tanto como el libro, el relay envía el snapshot completo.}
-  \note{Pedro. 7:05--8:45 (100 s). La segunda idea es el state-based resume, que
+  \note{Pedro. 7:50--9:30 (100 s). La segunda idea es el state-based resume, que
   reanuda al cliente a partir del estado del libro. El mecanismo se explica en
   cuatro pasos con el mismo libro. Antes del corte, el cliente tiene el libro
   al día hasta el mensaje 1000. Luego se desconecta y no recibe seis mensajes,
@@ -45,7 +45,7 @@
 \begin{frame}{Réplicas por región (\emph{leader-follower})}
   \centering\input{fig/f10-replicas}
   \takeaway{Un relay puede ir atrasado, aunque cada libro que entrega existió en el origen.}
-  \note{Nicolás. 8:45--9:50 (65 s). La tercera idea organiza los relays como
+  \note{Nicolás. 9:30--10:35 (65 s). La tercera idea organiza los relays como
   réplicas por región. Funcionan como las réplicas de una base de datos, donde
   el origen es el líder, los relays son followers y el feed numerado actúa
   como log de replicación. De ahí surgen cinco mecanismos. Primero, solo el
@@ -79,7 +79,7 @@
     \bottomrule
   \end{tabular}
   \takeaway{La evaluación compara Binance, un resume estilo Ably y RelayBook.}
-  \note{Nicolás. 9:50--10:40 (50 s). La hipótesis tiene dos partes refutables. La
+  \note{Nicolás. 10:35--11:25 (50 s). La hipótesis tiene dos partes refutables. La
   primera plantea que el contrato de Binance, con tráfico real acelerado diez
   veces, sigue degradado cuando termina el pico. La segunda plantea que, en
   las mismas condiciones, RelayBook cumple tres metas y el resume estilo Ably

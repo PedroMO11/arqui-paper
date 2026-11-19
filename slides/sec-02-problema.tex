@@ -1,5 +1,5 @@
-% Pedro. S6--S8. Tormenta de reconexiones, falla metaestable y evidencia
-% disponible sobre Binance.
+% Pedro. S6--S9. Tormenta de reconexiones, falla metaestable, evidencia
+% disponible sobre Binance y estado del arte.
 \section{El problema}
 \begin{frame}{Tormenta de reconexiones}
   \centering\input{fig/f05-tormenta}
@@ -42,4 +42,31 @@
   Binance y el costo de generar un snapshot no son públicos. Por eso el
   trabajo solo sostiene que el contrato tiene la estructura del problema y lo
   evalúa con una simulación.}
+\end{frame}
+
+\begin{frame}{Estado del arte}
+  \centering\footnotesize
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{p{3.0cm}p{5.6cm}p{4.6cm}}
+    \toprule
+    Línea de trabajo & Aporte & Límite frente al problema \\
+    \midrule
+    Market data en la nube & Jasper (2024) distribuye a unos 1\,000 participantes con un árbol de proxies, y DBO (SIGCOMM 2023) asegura fairness en el orden de entrega & No abordan la recuperación tras reconexiones \\
+    Fallas metaestables & Isaacs et al. (HotOS 2025), Farahbakhsh et al. (HotNets 2025) y un estudio de 2026 las modelan y predicen & No proponen una arquitectura de recuperación \\
+    Control de sobrecarga & RetryGuard (2025) ajusta la política de retries y Rajomon (NSDI 2025) descarta pedidos con tokens & La recuperación sigue a cargo del origen \\
+    Sistemas en producción & Kraken valida el libro con CRC32, Ably reanuda desde el último mensaje en 2 min y CME publica snapshots cíclicos & Kraken exige el libro completo, Ably reenvía cada mensaje y CME requiere red privada \\
+    \bottomrule
+  \end{tabular}
+  \takeaway{RelayBook traslada la recuperación de los clientes fuera del origen.}
+  \note{Pedro. 6:00--6:45 (45 s). El estado del arte se organiza en cuatro líneas.
+  En distribución de market data en la nube, Jasper construye un árbol de
+  proxies para unos mil participantes y DBO asegura fairness en el orden de
+  entrega, aunque ninguno aborda la recuperación tras reconexiones. En fallas
+  metaestables, Isaacs, Farahbakhsh y un trabajo de 2026 las modelan y
+  predicen, sin proponer una arquitectura de recuperación. En control de
+  sobrecarga, RetryGuard ajusta la política de retries y Rajomon descarta
+  pedidos con tokens, mientras la recuperación sigue a cargo del origen. En
+  producción, Ably reanuda reenviando los mensajes perdidos y CME publica
+  snapshots cíclicos sobre multicast en redes privadas. La propuesta se ubica
+  en ese espacio y traslada la recuperación fuera del origen.}
 \end{frame}

@@ -1,5 +1,5 @@
-% Nicolás. S16--S19. Resultados, evaluación de la hipótesis, conclusión y
-% trabajo futuro. Total previsto 17:20.
+% Nicolás. S17--S20. Resultados, evaluación de la hipótesis, conclusión y
+% trabajo futuro. Total previsto 18:05.
 \section{Resultados}
 \begin{frame}{Resultados de la tormenta (capacidad 3$\times$)}
   \centering\small
@@ -17,7 +17,7 @@
   \medskip
   {\small Reconexiones durante el pico en Binance 164\,684, en Ably 215\,531 y en \textbf{RelayBook 629}\par}
   \takeaway{RelayBook se recupera en 0\,s y reduce 400 veces la carga del origen.}
-  \note{Nicolás. 13:25--14:15 (50 s). La tabla corresponde a una capacidad de tres
+  \note{Nicolás. 14:10--15:00 (50 s). La tabla corresponde a una capacidad de tres
   veces la carga normal. Binance con snapshot barato se recupera al instante,
   aunque durante el pico su atraso llega a 3.6 segundos, y con snapshot caro
   tarda 38 segundos o no se recupera. RelayBook se recupera en cero segundos,
@@ -32,7 +32,7 @@
 \begin{frame}{Primera parte de la hipótesis}
   \centering\input{fig/f14-grilla}
   \takeaway{El resultado ubica las condiciones en que el contrato es vulnerable.}
-  \note{Nicolás. 14:15--15:15 (60 s). La primera parte evalúa si el contrato de
+  \note{Nicolás. 15:00--16:00 (60 s). La primera parte evalúa si el contrato de
   Binance sigue degradado tras el pico. La grilla muestra sus 18 corridas, con
   la capacidad en columnas, el costo del snapshot en filas y en cada celda el
   tiempo de recuperación. Con snapshot barato, en la fila superior, siempre se
@@ -64,7 +64,7 @@
     \end{column}
   \end{columns}
   \takeaway{La mejora proviene de recuperar en los relays y de la conflation.}
-  \note{Nicolás. 15:15--16:35 (80 s). La segunda parte evalúa si RelayBook cumple
+  \note{Nicolás. 16:00--17:20 (80 s). La segunda parte evalúa si RelayBook cumple
   las tres metas. Cumple el time to recover, queda cerca en staleness y falla
   en full resync. El gráfico muestra en el eje horizontal los mensajes
   perdidos por el cliente y en el vertical los niveles distintos que
@@ -107,7 +107,7 @@
     \end{column}
   \end{columns}
   \vspace{4mm}\hfill{\large\color{colAcento}¿Preguntas?}
-  \note{Nicolás. 16:35--17:20 (45 s). En síntesis, la hipótesis se cumple en time to
+  \note{Nicolás. 17:20--18:05 (45 s). En síntesis, la hipótesis se cumple en time to
   recover, queda cerca en staleness y se refuta en full resync. El contrato de
   Binance solo queda caído con snapshots caros y poca capacidad, mientras que
   RelayBook se recupera de inmediato sin cargar al origen. Como trabajo futuro

@@ -1,4 +1,4 @@
-% Nicolás. S13--S15. Evaluación con datos reales, prototipo del relay,
+% Nicolás. S14--S16. Evaluación con datos reales, prototipo del relay,
 % experimento de tamaño y simulación de la tormenta.
 \section{Evaluación}
 \begin{frame}{Datos reales y prototipo del relay}
@@ -10,7 +10,7 @@
   \stat{41\,KB}{snapshot, 2\,000 niveles}\par
   \medskip
   \input{fig/f11-prototipo}
-  \note{Nicolás. 10:40--11:30 (50 s). La evaluación usa tráfico real. Se grabaron 70
+  \note{Nicolás. 11:25--12:15 (50 s). La evaluación usa tráfico real. Se grabaron 70
   minutos del stream público de profundidad de Binance Futures para BTC/USDT
   el 13 de noviembre, con 41 113 mensajes y ninguno perdido. Llegan casi diez
   mensajes por segundo y cada uno cambia en promedio 275 niveles. El snapshot
@@ -34,7 +34,7 @@
     \end{column}
   \end{columns}
   \takeaway{Reanudar por estado reduce el payload en cortes breves y frente a reenviar mensajes.}
-  \note{Nicolás. 11:30--12:30 (60 s). El primer experimento mide cuánto pesa
+  \note{Nicolás. 12:15--13:15 (60 s). El primer experimento mide cuánto pesa
   recuperar a un cliente. Sobre la grabación a ritmo normal se desconectan
   clientes en momentos al azar durante 1 a 60 segundos y se mide cuánto debe
   enviarse con cada diseño, en escala logarítmica. La línea roja punteada es
@@ -52,7 +52,7 @@
 \begin{frame}{Simulación de la tormenta con tráfico real}
   \centering\input{fig/f13-simulacion}
   \takeaway{La capacidad y el costo del snapshot en Binance se prueban con varios valores.}
-  \note{Nicolás. 12:30--13:25 (55 s). El segundo experimento, el central, simula la
+  \note{Nicolás. 13:15--14:10 (55 s). El segundo experimento, el central, simula la
   tormenta. El tiempo avanza en pasos de 100 milisegundos y cada servidor
   reparte su capacidad entre sus conexiones. La grabación se reproduce en tres
   fases, cinco minutos a ritmo normal, cinco minutos a diez veces y diez
