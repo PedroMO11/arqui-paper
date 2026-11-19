@@ -1,0 +1,45 @@
+% S5. Cómo el cliente arma su copia: snapshot + deltas numerados, y qué pasa
+% con la copia si falta un mensaje. Mismo libro de la S3 y la S4.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,-0.3) rectangle (13.5,5.45);
+  \def\pv#1{\textcolor{colVenta}{#1}}
+  \def\pc#1{\textcolor{colCompra}{#1}}
+  \tikzset{
+    libro/.style={box,font=\scriptsize,text width=2.0cm,inner sep=3pt},
+    delta/.style={box,font=\scriptsize,text width=1.25cm,inner sep=3pt},
+    def/.style={font=\scriptsize,align=left,anchor=north west,text width=4.2cm},
+    fila/.style={font=\scriptsize\bfseries,anchor=west},
+  }
+  % ---------- Definiciones ----------
+  \node[def] at (0.0,5.45) {\textbf{Snapshot}: foto completa del libro en un momento (en nuestros datos, 2\,000 niveles, 41\,KB).};
+  \node[def] at (4.6,5.45) {\textbf{Delta}: mensaje con solo los niveles que cambiaron y su valor nuevo.};
+  \node[def] at (9.2,5.45) {\textbf{Número de secuencia}: cada delta viene numerado en orden: \#1001, \#1002, \ldots};
+  % ---------- Fila 1: llegan todos ----------
+  \node[fila,text=colReq] at (0.0,4.3) {Si llegan todos los mensajes};
+  \node[libro,acento] (s) at (1.2,3.25) {\textbf{Snapshot \#1000}\\[1pt]
+    \begin{tabular}{@{}l@{\ \ }r@{}}\pv{67\,002}&0.5\\\pv{67\,001}&2.0\\\pc{67\,000}&1.2\\\pc{66\,999}&0.8\end{tabular}};
+  \node[delta] (d1) at (3.4,3.25) {\textbf{\#1001}\\67\,001\\$\to$ 1.0};
+  \node[delta] (d2) at (5.3,3.25) {\textbf{\#1002}\\67\,000\\$\to$ 1.5};
+  \node[delta] (d3) at (7.2,3.25) {\textbf{\#1003}\\66\,999\\$\to$ 0\\(se borra)};
+  \node[libro,bueno] (r) at (9.6,3.25) {\textbf{Copia del cliente}\\[1pt]
+    \begin{tabular}{@{}l@{\ \ }r@{}}\pv{67\,002}&0.5\\\pv{67\,001}&\textbf{1.0}\\\pc{67\,000}&\textbf{1.5}\\\pc{66\,999}&---\end{tabular}};
+  \node[bueno,font=\scriptsize,text width=1.9cm] (ok) at (12.25,3.25) {igual al\\libro real \okmark};
+  \foreach \a/\b in {s/d1,d1/d2,d2/d3,d3/r} \draw[flow] (\a) -- (\b);
+  \draw[flow,colReq] (r) -- (ok);
+  % ---------- Fila 2: falta el #1002 ----------
+  \node[fila,text=colWake] at (0.0,2.0) {Si se pierde el \#1002};
+  \node[libro,acento] (s') at (1.2,0.95) {\textbf{Snapshot \#1000}\\[1pt]
+    \begin{tabular}{@{}l@{\ \ }r@{}}\pv{67\,002}&0.5\\\pv{67\,001}&2.0\\\pc{67\,000}&1.2\\\pc{66\,999}&0.8\end{tabular}};
+  \node[delta] (e1) at (3.4,0.95) {\textbf{\#1001}\\67\,001\\$\to$ 1.0};
+  \node[delta,draw=colWake,text=colWake,dashed,fill=white] (e2) at (5.3,0.95) {\textbf{\#1002}\\no llegó};
+  \node[delta] (e3) at (7.2,0.95) {\textbf{\#1003}\\66\,999\\$\to$ 0\\(se borra)};
+  \node[libro,malo] (w) at (9.6,0.95) {\textbf{Copia del cliente}\\[1pt]
+    \begin{tabular}{@{}l@{\ \ }r@{}}\pv{67\,002}&0.5\\\pv{67\,001}&1.0\\\pc{67\,000}&\textbf{1.2} \xmark\\\pc{66\,999}&---\end{tabular}};
+  \node[malo,font=\scriptsize,text width=1.9cm] (bad) at (12.25,0.95) {dice 1.2, el real es 1.5: \textbf{no confiable}};
+  \draw[flow] (s') -- (e1);
+  \draw[flow,colWake,dashed] (e1) -- (e2);
+  \draw[flow,colWake,dashed] (e2) -- (e3);
+  \draw[flow] (e3) -- (w);
+  \draw[flow,colWake] (w) -- (bad);
+  \node[font=\scriptsize,text=colWake,anchor=north] at (5.3,0.05) {después del \#1001 llegó el \#1003: el cliente sabe que perdió uno};
+\end{tikzpicture}

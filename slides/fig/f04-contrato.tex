@@ -1,0 +1,18 @@
+% S5. El contrato documentado de Binance para mantener un libro local.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0.55) rectangle (13.5,4.45);
+  \node[box,font=\scriptsize,text width=3.0cm] (n1) at (1.9,3.8) {\textbf{1.} Abrir el \textbf{WebSocket}:\\conexión abierta que\\empuja los deltas};
+  \node[box,font=\scriptsize,text width=3.0cm] (n2) at (5.6,3.8) {\textbf{2.} Pedir el snapshot por \textbf{REST}: una petición\\al servidor central};
+  \node[box,font=\scriptsize,text width=3.0cm] (n3) at (9.3,3.8) {\textbf{3.} Aplicar los deltas\\sobre el snapshot};
+  \draw[flow] (n1) -- (n2);
+  \draw[flow] (n2) -- (n3);
+  \node[decision] (d) at (9.3,1.75) {¿salto en la\\secuencia\\o corte?};
+  \draw[flow] (n3) -- (d);
+  \draw[flow,colReq] (d.east) -- ++(1.0,0) |- (n3.east);
+  \node[font=\scriptsize\bfseries,text=colReq,anchor=west] at (12.0,2.75) {no: seguir};
+  \node[malo,font=\scriptsize,text width=3.0cm] (bad) at (5.6,1.75) {Tirar el libro y pedir\\otra vez el \textbf{snapshot completo}};
+  \draw[flow,colWake] (d.west) -- node[above,font=\scriptsize\bfseries,text=colWake] {sí} (bad.east);
+  \draw[flow,colWake] (bad.north) -- (n2.south);
+  \node[malo,font=\scriptsize,text width=3.0cm] (lim) at (1.9,1.75) {Límites del REST:\\muchas peticiones $\to$ \textbf{429}\\insistir $\to$ \textbf{418} (baneo)};
+  \draw[colWake,dashed,thick] (bad.west) -- (lim.east);
+\end{tikzpicture}

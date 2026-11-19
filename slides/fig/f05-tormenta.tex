@@ -1,0 +1,15 @@
+% S6. El bucle de la tormenta de reconexiones.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0.1) rectangle (13.5,4.65);
+  \node[malo,font=\scriptsize,text width=2.8cm] (t) at (1.7,3.95) {\textbf{Disparador}\\pico de volatilidad:\\10$\times$ más mensajes};
+  \node[box,font=\scriptsize,text width=3.7cm] (n1) at (6.6,3.95) {\textbf{1.} Clientes lentos no alcanzan\\$\to$ se les \textbf{corta} la conexión};
+  \node[box,font=\scriptsize,text width=3.4cm] (n2) at (10.9,2.3) {\textbf{2.} Miles piden el\\\textbf{snapshot completo}\\por REST \textbf{a la vez}};
+  \node[box,font=\scriptsize,text width=3.7cm] (n3) at (6.6,0.65) {\textbf{3.} El servidor central se satura\\(stream 10$\times$ + snapshots)};
+  \draw[flow,colWake] (t) -- (n1);
+  \draw[flow] (n1.east) to[out=0,in=90] (n2.north);
+  \draw[flow] (n2.south) to[out=270,in=0] (n3.east);
+  \draw[flow,colWake,line width=1.2pt] (n3.west) to[out=180,in=180,looseness=1.6]
+    node[pos=0.5,left,font=\scriptsize,text=colWake,align=right] {retrasa el stream:\\más clientes\\se atrasan} (n1.west);
+  \node[font=\Large\bfseries,text=colWake] at (7.6,2.3) {bucle};
+  \node[malo,font=\scriptsize,text width=2.8cm] at (1.7,1.0) {Quien reintenta mucho:\\\textbf{429} $\to$ \textbf{418} (baneado)};
+\end{tikzpicture}

@@ -1,0 +1,24 @@
+% S2. Qué es un exchange: órdenes que entran, libro y matching dentro,
+% market data que sale hacia millones de clientes.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0.1) rectangle (13.5,4.75);
+  % Personas que mandan órdenes
+  \node[anchor=west,font=\small\bfseries] at (0,4.5) {Personas y bots mandan órdenes};
+  \node[box,font=\scriptsize,text width=2.9cm,text=colVenta,draw=colVenta] (o1) at (1.7,3.6) {Ana: \textbf{vendo} 0.5 BTC\\a 67\,002 USD};
+  \node[box,font=\scriptsize,text width=2.9cm,text=colCompra,draw=colCompra] (o2) at (1.7,2.3) {Luis: \textbf{compro} 1.2 BTC\\a 67\,000 USD};
+  \node[box,font=\scriptsize,text width=2.9cm,text=colCompra,draw=colCompra] (o3) at (1.7,1.0) {Bot: \textbf{compro} 1 BTC\\ya, al mejor precio};
+  % Exchange
+  \draw[colAcento,line width=1pt,rounded corners=4pt,fill=colAcento!4] (4.4,0.4) rectangle (8.9,4.25);
+  \node[font=\small\bfseries,text=colAcento] at (6.65,3.95) {Binance (exchange)};
+  \node[box,font=\scriptsize,text width=3.6cm] (me) at (6.65,3.0) {\textbf{Matching engine}\\cruza compras con ventas};
+  \node[acento,font=\scriptsize,text width=3.6cm] (ob) at (6.65,1.4) {\textbf{Order book}\\las órdenes que todavía\\no encuentran pareja};
+  \draw[flow,{Stealth[length=2.3mm]}-{Stealth[length=2.3mm]}] (me) -- (ob);
+  \foreach \o/\y in {o1/3.6,o2/2.3,o3/1.0} \draw[flow] (\o.east) -- (4.4,\y);
+  % Market data
+  \node[anchor=east,font=\small\bfseries] at (13.5,4.5) {Market data};
+  \node[box,font=\scriptsize,text width=2.7cm] (c1) at (11.85,3.6) {Apps de trading};
+  \node[box,font=\scriptsize,text width=2.7cm] (c2) at (11.85,2.3) {Bots y market makers};
+  \node[box,font=\scriptsize,text width=2.7cm] (c3) at (11.85,1.0) {Proveedores de datos};
+  \foreach \c/\y in {c1/3.6,c2/2.3,c3/1.0} \draw[flow,colAcento] (8.9,\y) -- (\c.west);
+  \node[font=\scriptsize,text=colAcento,align=center] at (11.85,0.35) {millones de clientes};
+\end{tikzpicture}

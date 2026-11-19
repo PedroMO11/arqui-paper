@@ -1,0 +1,25 @@
+% S18. Niveles visibles distintos que cambian según los mensajes perdidos,
+% medidos sobre la grabación. A 1x llegan ~10 mensajes/s; a 10x, ~100.
+\begin{tikzpicture}
+  \begin{axis}[
+    width=7.3cm,height=5.0cm,
+    xmode=log,xmin=1,xmax=1000,ymin=0,ymax=5000,
+    xtick={1,10,100,1000},xticklabels={1,10,100,1000},
+    ytick={0,1000,2000,3000,4000,5000},scaled y ticks=false,
+    yticklabels={0,{1\,000},{2\,000},{3\,000},{4\,000},{5\,000}},
+    xlabel={mensajes perdidos},ylabel={niveles distintos que cambiaron},
+    tick label style={font=\scriptsize},label style={font=\scriptsize},
+    axis line style={colNeutro},clip=false]
+    \addplot[colWake,thick,dashed,domain=1:1000,samples=2] {2000};
+    \node[font=\scriptsize,text=colWake,anchor=south west] at (axis cs:1.1,2000) {libro completo: 2\,000 niveles};
+    \addplot[colAcento,line width=1.4pt] coordinates {
+      (1,220) (2,374) (5,728) (10,1083) (20,1522) (50,2220)
+      (100,2770) (200,3271) (500,3897) (1000,4475)};
+    \draw[colReq,densely dotted,thick] (axis cs:10,0) -- (axis cs:10,1083);
+    \draw[colWake,densely dotted,thick] (axis cs:100,0) -- (axis cs:100,2770);
+    \fill[colReq] (axis cs:10,1083) circle (2.2pt);
+    \fill[colWake] (axis cs:100,2770) circle (2.2pt);
+    \node[font=\scriptsize,text=colReq,align=left,anchor=north west] at (axis cs:10.5,1050) {1\,s normal\\$\approx$1\,100 niveles};
+    \node[font=\scriptsize,text=colWake,align=right,anchor=south east] at (axis cs:95,2850) {1\,s en el pico\\$\approx$2\,800 niveles};
+  \end{axis}
+\end{tikzpicture}

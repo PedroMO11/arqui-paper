@@ -1,0 +1,89 @@
+% Bloque C: Nicolás, 4:35. S9--S12. RelayBook: relays, state-based resume,
+% réplicas por región, hipótesis y métricas.
+\section{La propuesta}
+\begin{frame}{RelayBook: recuperar en relays regionales}
+  \centering\input{fig/f08-arquitectura}
+  \takeaway{Idea 1: separar la \emph{distribución} de la \emph{recuperación}.}
+  \note{Nicolás. 7:05--8:10 (65 s). A la izquierda, Binance hoy: el mismo
+  servidor central reparte el stream a todos los clientes y además atiende
+  cada recuperación; son las flechas rojas. A la derecha, RelayBook. El
+  origen publica un solo feed con números de secuencia hacia una capa de
+  relays, uno o más por región. Cada relay mantiene una copia exacta del
+  libro y atiende a sus clientes. Cuando un cliente se reconecta, lo
+  resuelve el relay, en verde, y el origen ni se entera. Así el trabajo
+  del origen depende del número de relays, no del número de clientes ni
+  de cuántos se desconectan. El costo: una capa nueva de servidores que
+  hay que operar, y que puede fallar; por eso un cliente puede reanudar en
+  cualquier otro relay.}
+\end{frame}
+
+\begin{frame}{Idea 2: \emph{state-based resume}, reanudar por estado}
+  \centering\input{fig/f09-resume}
+  \takeaway{Se manda el valor actual de cada nivel que cambió, no la historia.}
+  \source{Si los cambios pesan tanto como el libro, el relay manda el snapshot completo: reanudar nunca cuesta más que resincronizar.}
+  \note{Nicolás. 8:10--9:40 (90 s). Esta es la idea central. El relay guarda,
+  además del valor de cada nivel, en qué mensaje cambió por última vez. Un
+  cliente se desconecta después del mensaje 1000. Mientras no está, el
+  nivel 67 000 cambia cuatro veces, el 66 999 una vez, y el 67 002
+  desaparece: el relay no lo borra, lo deja en cero, una lápida, para poder
+  avisar. El cliente vuelve y dice: lo último que vi fue el 1000. El relay
+  se queda con los niveles cuyo último cambio es mayor que 1000: tres
+  niveles. Le manda su valor actual y el cliente queda idéntico al relay.
+  Funciona porque cada delta trae el valor nuevo, no una resta: de 1.0,
+  1.5, 0.7 y 0.9 solo importa el 0.9. Comparen abajo: Binance manda el
+  libro entero, un resume estilo Ably manda los seis mensajes perdidos, y
+  nosotros tres niveles. Y una regla de seguridad: si la lista ya pesa como
+  el libro, el relay manda el libro, pero desde el relay, nunca desde el
+  origen.}
+\end{frame}
+
+\begin{frame}{Idea 3: réplicas por región (\emph{leader-follower})}
+  \centering\input{fig/f10-replicas}
+  \takeaway{Un relay puede ir atrasado, pero nunca muestra un libro que no existió.}
+  \note{Nicolás. 9:40--10:50 (70 s). Los relays son réplicas, como en una base
+  de datos replicada: el origen es el líder, los relays son seguidores, y
+  el feed con secuencia es el log de replicación. Como solo el origen
+  numera los mensajes, todos aplican lo mismo en el mismo orden: un relay
+  puede ir unos milisegundos atrasado, pero nunca inventa un libro. Ese
+  atraso se llama replication lag, y lo acotamos: si pasa de 500 ms, la
+  mitad de nuestra meta de un segundo, el relay se marca no saludable y
+  sus clientes reanudan en otro relay de la misma región. Si un relay
+  pierde mensajes del feed, no le pide nada al origen: redirige a sus
+  clientes o espera el snapshot que el feed manda cada segundo. Un checksum
+  detecta copias que divergen. Y a los clientes lentos no se les corta:
+  el relay junta los cambios y les manda solo el último valor de cada
+  nivel, lo que llamamos conflation.}
+\end{frame}
+
+\begin{frame}{Hipótesis y cómo la medimos}
+  \small
+  \textbf{Parte 1.} El contrato de Binance, con tráfico real acelerado 10$\times$,
+  \textbf{sigue degradado} cuando termina el pico.\par
+  \textbf{Parte 2.} En las mismas condiciones, RelayBook \textbf{cumple las tres
+  metas}, y un resume estilo Ably tiene \textbf{más atraso}, porque cada
+  recuperación arrastra todos los mensajes perdidos.\par
+  \medskip
+  \centering
+  \begin{tabular}{p{3.2cm}p{7.6cm}l}
+    \toprule
+    Métrica & Qué mide & Meta \\
+    \midrule
+    \emph{Full resync ratio} & De las reconexiones durante el pico, cuántas terminan en un snapshot completo & $< 1\%$ \\
+    \emph{Time to recover} & Desde el fin del pico, cuánto tarda el 99\% de los clientes en tener un libro válido & $\leq 30$\,s \\
+    \emph{Staleness} p99 & Atraso del libro del cliente frente al origen; el 99\% de las muestras está por debajo & $< 1$\,s \\
+    \bottomrule
+  \end{tabular}
+  \takeaway{Comparamos tres diseños: Binance, estilo Ably y RelayBook.}
+  \note{Nicolás. 10:50--11:40 (50 s). La hipótesis tiene dos partes, y
+  cualquiera puede salir refutada. Primera: el contrato de Binance, con
+  tráfico real acelerado diez veces, sigue degradado después del pico.
+  Segunda: RelayBook cumple las tres metas, y el resume estilo Ably tiene
+  más atraso. Las métricas son tres. Full resync: qué fracción de las
+  reconexiones termina en un libro completo; queremos menos del uno por
+  ciento. Time to recover: cuánto tarda el 99\% de los clientes en volver a
+  tener un libro válido; queremos 30 segundos o menos, sin intervención.
+  Staleness p99: cuánto atraso tiene el libro del cliente; queremos menos
+  de un segundo. Ably es la referencia porque reanuda reenviando los
+  mensajes perdidos dentro de una ventana de dos minutos. Pedro explica
+  cómo lo probamos.}
+\end{frame}

@@ -1,0 +1,26 @@
+% S3. Order book de BTC/USDT: dos lados, niveles de precio y qué es un delta.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,-0.1) rectangle (13.5,4.75);
+  % ---------- Libro ----------
+  \node[anchor=west,font=\scriptsize\bfseries,text=colVenta] at (0.6,4.5) {VENTAS (\emph{asks}): quieren vender};
+  \node[venta] (a2) at (2.3,3.85) {67\,002 USD \quad 0.5 BTC};
+  \node[venta] (a1) at (2.3,3.25) {67\,001 USD \quad 2.0 BTC};
+  \draw[colNeutro,dashed,thick] (0.4,2.75) -- (4.2,2.75);
+  \node[compra] (b1) at (2.3,2.25) {67\,000 USD \quad 1.2 BTC};
+  \node[compra] (b2) at (2.3,1.65) {66\,999 USD \quad 0.8 BTC};
+  \node[anchor=west,font=\scriptsize\bfseries,text=colCompra] at (0.6,1.05) {COMPRAS (\emph{bids}): quieren comprar};
+  % Precio de mercado
+  \node[font=\scriptsize,text=colAcento,align=left,anchor=west] (pm) at (4.45,2.75) {precio de mercado:\\entre 67\,000 y 67\,001};
+  % Nivel = suma de órdenes
+  \node[font=\scriptsize,align=left,anchor=north west,text width=6.5cm] at (0.1,0.7) {Cada fila es un \textbf{nivel de precio}: suma todas las órdenes a ese precio, p.\,ej.\ 2.0 = 0.5 + 1.5 de dos vendedores.};
+  % ---------- Qué cambia el libro ----------
+  \draw[colNeutro!40] (7.0,-0.05) -- (7.0,4.7);
+  \node[anchor=west,font=\small\bfseries] at (7.3,4.5) {Qué cambia el libro};
+  \node[box,font=\scriptsize,text width=5.4cm] (s1) at (10.35,3.75) {1. Llega una orden: \textbf{compro 1 BTC ya}};
+  \node[box,font=\scriptsize,text width=5.4cm] (s2) at (10.35,2.75) {2. Se cruza con el vendedor más barato: \textbf{67\,001}};
+  \node[box,font=\scriptsize,text width=5.4cm] (s3) at (10.35,1.75) {3. El nivel 67\,001 pasa de 2.0 a \textbf{1.0 BTC}};
+  \node[acento,font=\scriptsize,text width=5.4cm] (s4) at (10.35,0.6) {Ese cambio es un \textbf{delta}: \emph{``67\,001 ahora vale 1.0''}\\(el valor nuevo, no ``resta 1'')};
+  \draw[flow] (s1) -- (s2);
+  \draw[flow] (s2) -- (s3);
+  \draw[flow] (s3) -- (s4);
+\end{tikzpicture}

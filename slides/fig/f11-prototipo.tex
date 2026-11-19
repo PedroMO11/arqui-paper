@@ -1,0 +1,13 @@
+% S13. Del dato real a la verificación del relay.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,-0.05) rectangle (13.5,2.75);
+  \tikzset{paso/.style={box,font=\scriptsize,text width=2.75cm,minimum height=13mm}}
+  \node[paso] (p1) at (1.55,1.9) {\textbf{Grabación real}\\Binance Futures\\13 nov.\ 2026};
+  \node[paso] (p2) at (5.0,1.9) {\textbf{Relay prototipo}\\secuencia y lápida\\por nivel};
+  \node[paso] (p3) at (8.45,1.9) {\textbf{46 reconexiones}\\al azar, cortes\\de distinto largo};
+  \node[bueno,font=\scriptsize,text width=2.75cm,minimum height=13mm] (p4) at (11.9,1.9) {\textbf{46 / 46 correctas}\\checksum y 100 mejores\\niveles idénticos};
+  \draw[flow] (p1) -- (p2);
+  \draw[flow] (p2) -- (p3);
+  \draw[flow,colReq] (p3) -- (p4);
+  \node[acento,font=\scriptsize,text width=12.6cm,align=left] at (6.75,0.35) {\textbf{El checksum encontró un error nuestro:} la primera versión dejaba niveles ``fantasma'' al otro lado del precio. La verificación que proponemos funciona.};
+\end{tikzpicture}

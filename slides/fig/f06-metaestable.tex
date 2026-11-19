@@ -1,0 +1,27 @@
+% S7. Sobrecarga normal vs falla metaestable. Esquema cualitativo, no datos.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,-0.35) rectangle (13.5,4.5);
+  \foreach \dx/\titulo/\col in {0.9/Sobrecarga normal/colReq,7.9/Falla metaestable/colWake} {
+    \begin{scope}[xshift=\dx cm]
+      \node[anchor=west,font=\small\bfseries,text=\col] at (0,4.25) {\titulo};
+      \fill[colWake!9] (1.5,0) rectangle (2.9,3.6);
+      \node[font=\scriptsize,text=colWake,align=center] at (2.2,3.3) {pico\\(disparador)};
+      \draw[flow,thin] (0,0) -- (5.6,0);
+      \draw[flow,thin] (0,0) -- (0,3.75);
+      \node[anchor=north east,font=\tiny] at (5.6,-0.05) {tiempo};
+      \node[rotate=90,font=\tiny,anchor=south] at (-0.1,1.35) {clientes con libro válido};
+      \draw[colNeutro!50,densely dotted] (0,2.8) -- (5.4,2.8);
+      \node[font=\tiny,anchor=east] at (0,2.8) {100\%};
+    \end{scope}
+  }
+  % Sobrecarga normal: cae durante el pico y vuelve sola
+  \begin{scope}[xshift=0.9cm]
+    \draw[colReq,line width=1.6pt] (0,2.8) -- (1.5,2.8) -- (1.75,1.0) -- (2.9,1.0) -- (3.3,2.8) -- (5.4,2.8);
+    \node[font=\scriptsize,text=colReq,align=center] at (4.3,2.2) {se recupera\\sola};
+  \end{scope}
+  % Metaestable: el pico termina y el sistema sigue abajo
+  \begin{scope}[xshift=7.9cm]
+    \draw[colWake,line width=1.6pt] (0,2.8) -- (1.5,2.8) -- (1.75,0.6) -- (2.9,0.6) -- (3.4,0.8) -- (4.2,0.55) -- (5.4,0.7);
+    \node[font=\scriptsize,text=colWake,align=center] at (4.2,1.7) {sigue caída:\\los reintentos\\la sostienen};
+  \end{scope}
+\end{tikzpicture}

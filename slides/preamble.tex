@@ -1,0 +1,63 @@
+\usetheme{default}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else
+  \usepackage{fontspec}   % XeLaTeX/LuaLaTeX: Latin Modern con Unicode
+\fi
+\usepackage[spanish,es-noquoting]{babel}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,decorations.pathreplacing,babel}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{booktabs}
+\usepackage{amssymb}   % \checkmark
+\newcommand{\okmark}{\textcolor{colReq}{$\checkmark$}}
+\newcommand{\xmark}{\textcolor{colWake}{$\times$}}
+
+% Paleta. Rojo = problema, verde = solución, azul = acento/propuesta.
+% Ámbar y morado se reservan SOLO para los dos lados del order book.
+\definecolor{colWake}{RGB}{192,57,43}
+\definecolor{colReq}{RGB}{39,120,70}
+\definecolor{colNeutro}{RGB}{90,90,90}
+\definecolor{colAcento}{RGB}{30,90,150}
+\definecolor{colVenta}{RGB}{176,112,0}   % asks: quienes venden
+\definecolor{colCompra}{RGB}{110,60,165} % bids: quienes compran
+
+\setbeamercolor{normal text}{fg=colNeutro,bg=white}
+\setbeamercolor{frametitle}{fg=colAcento}
+\setbeamercolor{title}{fg=colAcento}
+\setbeamercolor{structure}{fg=colAcento}
+\setbeamercolor{block title}{fg=white,bg=colNeutro}
+\setbeamercolor{block body}{fg=colNeutro,bg=colNeutro!5}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+\setbeamersize{text margin left=8mm,text margin right=8mm}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{\hfill\scriptsize\insertframenumber/\inserttotalframenumber\hspace{8mm}\vspace{3mm}}
+\setbeamertemplate{itemize items}[circle]
+\setbeameroption{hide notes}
+% Para ensayar: sustituir hide notes por show only notes.
+\tikzset{
+  every node/.style={font=\small},
+  box/.style={draw=colNeutro,rounded corners=2pt,fill=colNeutro!5,
+              minimum height=7mm,align=center,inner sep=4pt},
+  flow/.style={-{Stealth[length=2.3mm]},thick,draw=colNeutro},
+  proposed/.style={draw=colAcento,text=colAcento,fill=colAcento!5},
+  malo/.style={box,draw=colWake,text=colWake,fill=colWake!6},
+  bueno/.style={box,draw=colReq,text=colReq,fill=colReq!6},
+  acento/.style={box,draw=colAcento,text=colAcento,fill=colAcento!7,line width=1pt},
+  decision/.style={diamond,draw=colNeutro,fill=white,aspect=2,inner sep=1pt,
+                   font=\scriptsize,align=center,thick},
+  % Order book: una fila por nivel de precio
+  venta/.style={draw=colVenta,fill=colVenta!13,text=colVenta,minimum height=5.5mm,
+                minimum width=3.4cm,font=\scriptsize\bfseries,inner sep=1pt},
+  compra/.style={draw=colCompra,fill=colCompra!12,text=colCompra,minimum height=5.5mm,
+                 minimum width=3.4cm,font=\scriptsize\bfseries,inner sep=1pt},
+  cliente/.style={box,font=\scriptsize,minimum height=5.5mm,inner sep=2pt},
+  rec/.style={-{Stealth[length=2mm]},thick,dashed},
+}
+\newcommand{\source}[1]{\par\smallskip{\scriptsize\color{colNeutro}#1}\par}
+\newcommand{\takeaway}[1]{\par\medskip{\large\color{colAcento}#1}\par}
+% \stat{número}{etiqueta}: un dato grande con su descripción
+\newcommand{\stat}[2]{\begin{tabular}{@{}c@{}}{\Large\bfseries\color{colAcento}#1}\\[-1pt]{\scriptsize #2}\end{tabular}}

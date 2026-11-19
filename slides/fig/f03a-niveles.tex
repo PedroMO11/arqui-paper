@@ -1,0 +1,39 @@
+% S4. El mismo libro de la S3 publicado con tres niveles de detalle.
+% Ana y Luis son las órdenes de la S2.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,0.1) rectangle (13.5,4.25);
+  \tikzset{
+    v/.style={venta,minimum width=3.0cm,minimum height=4.6mm},
+    c/.style={compra,minimum width=3.0cm,minimum height=4.6mm},
+    tit/.style={font=\small\bfseries,text=colNeutro},
+    des/.style={font=\scriptsize,text=colNeutro,align=center,text width=4.0cm},
+    pie/.style={font=\scriptsize,align=center,text width=4.0cm},
+  }
+  % ---------- L1 ----------
+  \node[tit] at (2.2,4.0) {L1: el mejor precio};
+  \node[des] at (2.2,3.55) {solo la mejor venta\\y la mejor compra};
+  \node[v] at (2.2,3.0) {67\,001 \quad 2.0};
+  \draw[colNeutro,dashed] (0.6,2.67) -- (3.8,2.67);
+  \node[c] at (2.2,2.33) {67\,000 \quad 1.2};
+  \node[pie,text=colNeutro] at (2.2,0.75) {sabes el precio, pero no\\cuánto hay detrás};
+  % ---------- L2 ----------
+  \draw[colAcento,line width=1.2pt,rounded corners=3pt,fill=colAcento!4] (4.6,0.45) rectangle (8.9,4.22);
+  \node[tit,text=colAcento] at (6.75,4.0) {L2: cada nivel de precio};
+  \node[des] at (6.75,3.55) {cada precio con la cantidad\\total que hay a ese precio};
+  \node[v] at (6.75,3.0) {67\,002 \quad 0.5};
+  \node[v] at (6.75,2.5) {67\,001 \quad 2.0};
+  \draw[colNeutro,dashed] (5.15,2.17) -- (8.35,2.17);
+  \node[c] at (6.75,1.84) {67\,000 \quad 1.2};
+  \node[c] at (6.75,1.34) {66\,999 \quad 0.8};
+  \node[pie,text=colAcento] at (6.75,0.75) {\textbf{Binance publica L2}:\\es lo que estudiamos};
+  % ---------- L3 ----------
+  \node[tit] at (11.3,4.0) {L3: cada orden};
+  \node[des] at (11.3,3.55) {cada orden por separado,\\sin sumar};
+  \node[v] at (11.3,3.0) {67\,002 \quad 0.5 \ (Ana)};
+  \node[v] at (11.3,2.55) {67\,001 \quad 0.5};
+  \node[v] at (11.3,2.1) {67\,001 \quad 1.5};
+  \draw[colNeutro,dashed] (9.7,1.77) -- (12.9,1.77);
+  \node[c] at (11.3,1.43) {67\,000 \quad 1.2 \ (Luis)};
+  \node[c] at (11.3,0.98) {66\,999 \quad 0.8};
+  \node[pie,text=colNeutro] at (11.3,0.45) {el 2.0 de L2 = 0.5 + 1.5\\de dos vendedores};
+\end{tikzpicture}

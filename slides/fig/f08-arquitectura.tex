@@ -1,0 +1,35 @@
+% S9. Binance hoy vs RelayBook: dónde termina la recuperación.
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \path[use as bounding box] (0,-0.5) rectangle (13.5,4.65);
+  % ---------------- (a) Binance hoy ----------------
+  \node[anchor=west,font=\small\bfseries] at (0,4.45) {(a) Binance hoy};
+  \node[malo,font=\scriptsize,text width=4.2cm] (o) at (3.1,3.55) {\textbf{Servidor central}\\stream a todos + snapshots REST};
+  \foreach \i/\x in {1/0.55,2/1.8,3/3.05,4/4.3,5/5.55} {
+    \node[cliente] (c\i) at (\x,0.75) {cliente};
+    \draw[flow,colAcento,thin] (\x-0.12,3.05) -- (c\i.north west);
+    \draw[rec,colWake] (c\i.north east) -- (\x+0.12,3.05);
+  }
+  \node[font=\scriptsize,text=colWake] at (3.05,0.1) {cada reconexión pide el libro al servidor central};
+  \draw[colNeutro!40] (6.55,-0.25) -- (6.55,4.6);
+  % ---------------- (b) RelayBook ----------------
+  \node[anchor=west,font=\small\bfseries,text=colAcento] at (6.85,4.45) {(b) RelayBook};
+  \node[box,font=\scriptsize,text width=4.2cm] (or) at (10.2,3.75) {\textbf{Origen}\\un solo feed con secuencia};
+  \node[acento,font=\scriptsize,text width=2.5cm] (ra) at (8.45,2.2) {\textbf{Relay} región A\\copia del libro};
+  \node[acento,font=\scriptsize,text width=2.5cm] (rb) at (11.95,2.2) {\textbf{Relay} región B\\copia del libro};
+  \draw[flow,colAcento] (or) -- (ra);
+  \draw[flow,colAcento] (or) -- (rb);
+  \foreach \r/\xs in {ra/7.45,rb/10.95} {
+    \foreach \k in {0,1,2} {
+      \pgfmathsetmacro{\xc}{\xs+\k*1.0}
+      \node[cliente,minimum width=0.85cm] (k) at (\xc,0.75) {cl.};
+      \draw[flow,colAcento,thin] (\xc-0.1,1.65) -- (\xc-0.1,1.03);
+      \draw[rec,colReq] (\xc+0.12,1.03) -- (\xc+0.12,1.65);
+    }
+  }
+  \node[font=\scriptsize,text=colReq] at (10.2,0.1) {la reconexión se resuelve en el relay};
+  % Leyenda
+  \node[anchor=west,font=\scriptsize] at (0.2,-0.3) {%
+    \tikz\draw[flow,colAcento] (0,0) -- (0.5,0); distribución \quad
+    \tikz\draw[rec,colWake] (0,0) -- (0.5,0); recuperación en el servidor central \quad
+    \tikz\draw[rec,colReq] (0,0) -- (0.5,0); recuperación en el relay};
+\end{tikzpicture}
