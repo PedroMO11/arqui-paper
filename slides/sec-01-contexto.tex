@@ -1,5 +1,5 @@
-% Bloque A: Pedro, 4:20. S1--S5. Contexto: exchange, order book, market data,
-% y cómo funciona hoy el contrato de Binance.
+% Pedro. S1--S5. Contexto: exchange, order book y cómo funciona hoy el
+% contrato de Binance.
 \section{Contexto}
 \begin{frame}
   \vspace{5mm}
@@ -10,81 +10,63 @@
   Nicolas Castaneda y Pedro Mori\par
   Arquitectura de Software --- UTEC 2026-2\par
   Noviembre de 2026
-  \note{Pedro. 0:00--0:15. Presentamos RelayBook, una arquitectura para que
-  los clientes de Binance recuperen sus datos de mercado sin tumbar al
-  servidor central cuando miles se desconectan a la vez. Primero el
-  contexto, luego el problema, la propuesta, cómo la probamos y qué salió.}
+  \note{Pedro. 0:00--0:15 (15 s). Buenos días. Somos Pedro Mori y Nicolás Castaneda,
+  y presentamos RelayBook: una arquitectura para que los clientes de Binance
+  recuperen sus datos de mercado sin tumbar al servidor central cuando miles
+  se desconectan a la vez.}
 \end{frame}
 
 \begin{frame}{¿Qué es Binance? Un \emph{exchange}}
   \centering\input{fig/f01-exchange}
   \takeaway{El precio no lo fija nadie: sale de las órdenes de compra y venta.}
-  \note{Pedro. 0:15--1:00 (45 s). Binance es el exchange de criptomonedas más
-  grande del mundo. Un exchange es un mercado: la gente no compra bitcoin
-  a Binance, sino a otras personas a través de Binance. Cada uno manda una
-  orden: Ana quiere vender medio bitcoin a 67 002 dólares, Luis quiere
-  comprar a 67 000. Las órdenes que todavía no encuentran pareja esperan
-  en el order book, y el matching engine cruza las que coinciden. A la
-  derecha está lo que nos interesa: Binance publica lo que pasa en el
-  mercado, el market data, a millones de apps, bots y proveedores.}
+  \note{Pedro. 0:15--0:50 (35 s). Primero, el contexto. Binance es el exchange de
+  criptomonedas más grande del mundo. Un exchange es un mercado: uno no le
+  compra bitcoin a Binance, se lo compra a otra persona a través de Binance.
+  Ana quiere vender medio bitcoin a 67 002 dólares y Luis quiere comprar 1.2 a
+  67 000. Las órdenes que no encuentran pareja esperan en el order book, y el
+  matching engine cruza las que coinciden. A la derecha, lo que nos importa:
+  Binance publica lo que pasa en el mercado, el market data, para millones de
+  apps, bots y proveedores.}
 \end{frame}
 
 \begin{frame}{El \emph{order book}: la lista de órdenes que esperan}
   \centering\input{fig/f02-orderbook}
   \takeaway{Cada orden nueva, cancelada o ejecutada cambia un nivel: decenas de veces por segundo.}
-  \note{Pedro. 1:00--2:15 (75 s). Así se ve un order book de BTC/USDT.
-  Arriba, en ámbar, los que quieren vender: el más barato queda junto a la
-  línea. Abajo, en morado, los que quieren comprar: el que más paga queda
-  junto a la línea. Entre 67 000 y 67 001 está el precio de mercado: el
-  mejor vendedor pide 67 001 y el mejor comprador ofrece 67 000, así que
-  todavía nadie cierra trato. Cada fila es un nivel de precio, y su
-  cantidad es la suma de todas las órdenes a ese precio. A la derecha, qué
-  pasa cuando alguien compra 1 BTC ya: se cruza con el vendedor más
-  barato y el nivel 67 001 baja de 2.0 a 1.0. Ese cambio de un nivel es lo
-  que vamos a llamar un delta. Ojo: el delta dice el valor nuevo, 1.0, no
-  "resta 1". Eso será clave para nuestra propuesta.}
-\end{frame}
-
-\begin{frame}{\emph{Market data}: lo que Binance publica del libro}
-  \small
-  \textbf{Order book}: el libro real, vive \emph{dentro} de Binance (el partido en la cancha).\\
-  \textbf{Market data}: lo que Binance \emph{publica} sobre el mercado (la transmisión del partido).
-  Se puede publicar con tres niveles de detalle:
-  \par\medskip
-  \centering\input{fig/f03a-niveles}
-  \takeaway{Cada cliente arma su propia copia del libro con lo que Binance publica.}
-  \note{Pedro. 2:15--2:50 (35 s). Order book y market data no son lo mismo. El
-  libro es el partido en la cancha; el market data es la transmisión.
-  Nosotros no estamos dentro de Binance: solo vemos lo que publica. Y lo
-  puede publicar con tres niveles de detalle, con el mismo libro de antes.
-  L1 solo dice el mejor precio de cada lado. L2 da cada nivel de precio con
-  su cantidad total. L3 da cada orden por separado, como la de Ana. Binance
-  publica L2, y es lo que estudiamos. Con eso, cada cliente arma su propia
-  copia del libro.}
+  \note{Pedro. 0:50--2:05 (75 s). Así se ve un order book. Arriba, en ámbar, las
+  ventas, o asks. Abajo, en morado, las compras, o bids. El vendedor más
+  barato pide 67 001 y el comprador que más paga ofrece 67 000, así que el
+  precio de mercado está entre esos dos valores. Cada fila es un nivel de
+  precio y suma todas las órdenes a ese precio: el 2.0 de 67 001 son dos
+  vendedores, uno con 0.5 y otro con 1.5. A la derecha, qué cambia el libro.
+  Un bot quiere comprar 1 bitcoin ya: se cruza con el vendedor más barato y el
+  nivel 67 001 baja de 2.0 a 1.0. Ese cambio se llama delta, y dice el valor
+  nuevo, “67 001 ahora vale 1.0”, no “resta 1”. Esto será clave más adelante.
+  Binance publica el libro así, nivel por nivel con su cantidad total, y con
+  eso cada cliente arma su propia copia.}
 \end{frame}
 
 \begin{frame}{Cómo el cliente arma su copia: \emph{snapshot} + deltas}
   \centering\input{fig/f03b-copia}
-  \note{Pedro. 2:50--3:40 (50 s). La copia se arma así. Primero un snapshot:
-  la foto completa del libro; en nuestros datos tenía 2 000 niveles y pesaba
-  41 KB. Después llegan deltas: mensajes con solo los niveles que cambiaron
-  y su valor nuevo, numerados en orden. Arriba, todo llega: aplico el 1001,
-  el 1002 y el 1003, y mi copia queda igual al libro real. Abajo, se pierde
-  el 1002: mi copia sigue diciendo 1.2 en el nivel 67 000, cuando el real es
-  1.5. Lo detecto porque después del 1001 me llegó el 1003. Desde ese
-  momento mi copia no es confiable: puede mostrar una cantidad o un precio
-  que ya no existe.}
+  \note{Pedro. 2:05--2:55 (50 s). ¿Cómo arma esa copia? Con dos tipos de mensaje.
+  Primero, un snapshot: la foto completa del libro; en nuestros datos, 2 000
+  niveles y 41 KB. Después, deltas: mensajes con solo los niveles que
+  cambiaron, cada uno con un número de secuencia. En la fila de arriba llegan
+  todos: aplico el 1001, el 1002 y el 1003, y mi copia queda igual al libro
+  real. En la fila de abajo se pierde el 1002, y mi copia sigue diciendo 1.2
+  en el nivel 67 000 cuando el real es 1.5. Me doy cuenta porque después del
+  1001 me llegó el 1003. Desde ese momento, mi copia no es confiable.}
 \end{frame}
 
 \begin{frame}{Binance hoy: qué pasa si pierdes un mensaje}
   \centering\input{fig/f04-contrato}
   \takeaway{El stream no reenvía lo perdido: un corte de 1\,s cuesta el libro completo.}
   \source{Fuente: documentación oficial de Binance, \emph{How to manage a local order book correctly}.}
-  \note{Pedro. 3:40--4:20 (40 s). Esta es la receta que Binance documenta.
-  Abrir el WebSocket, la conexión que empuja los deltas; pedir un snapshot
-  por REST, una petición puntual al servidor central; y aplicar los deltas
-  encima. Si hay un salto en la secuencia o se corta la conexión, el
-  cliente tira su libro y pide otro snapshot completo. El REST tiene
-  límites: 429 si pides demasiado, 418 si insistes, que es un baneo. Binance
-  no reenvía lo perdido: un segundo o un minuto fuera, pagas el libro entero.}
+  \note{Pedro. 2:55--3:35 (40 s). Esta es la receta que Binance documenta. Uno:
+  abrir el WebSocket, una conexión que se queda abierta y empuja los deltas.
+  Dos: pedir el snapshot por REST, una petición puntual al servidor central.
+  Tres: aplicar los deltas encima. Si hay un salto en la secuencia o se corta
+  la conexión, el cliente tira su libro y vuelve al paso dos. Ese REST tiene
+  límites: error 429 si pides demasiado, y 418, un baneo, si insistes. Lo
+  clave: Binance no reenvía lo perdido. Un segundo o un minuto fuera, pagas el
+  libro entero.}
 \end{frame}

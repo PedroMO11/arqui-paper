@@ -1,5 +1,5 @@
-% Bloque E: Nicolás, 4:45. S16--S19. Resultados, por qué la hipótesis se
-% cumplió solo en parte, conclusión y trabajo futuro. Total previsto: 19:30.
+% Nicolás. S16--S19. Resultados, por qué la hipótesis se cumplió solo en
+% parte, conclusión y trabajo futuro. Total previsto: 17:20.
 \section{Resultados}
 \begin{frame}{Resultados de la tormenta (capacidad 3$\times$)}
   \centering\small
@@ -17,37 +17,33 @@
   \medskip
   {\small Reconexiones durante el pico: Binance 164\,684 $\cdot$ Ably 215\,531 $\cdot$ \textbf{RelayBook 629}\par}
   \takeaway{RelayBook: 0\,s para recuperarse y 400 veces menos carga en el origen que Binance.}
-  \note{Nicolás. 14:45--15:50 (65 s). Esta tabla es con una capacidad de tres
-  veces la carga normal. Binance con snapshot barato se recupera, pero
-  durante el pico su atraso es de 3.6 segundos; con snapshot caro tarda 38
-  segundos o directamente no se recupera, con atrasos de casi cinco
-  minutos. El estilo Ably casi nunca manda un libro completo, 1.9\%, pero
-  cada reconexión arrastra entre 32 y 38 MB de mensajes perdidos que los
-  clientes lentos no alcanzan a recibir antes de reintentar: su atraso
-  llega a 120 segundos, y solo salen cuando vence la ventana de dos
-  minutos. RelayBook se recupera en cero segundos, con un atraso de 1.1
-  segundos, y el origen carga 0.3 MB/s contra 120 de Binance. Y fíjense en
-  la última línea: durante el pico Binance tuvo 164 mil reconexiones;
-  RelayBook, 629, porque a los lentos no se les corta. La predicción sobre
-  Ably se cumplió: 120 segundos contra 1.1. Pero la columna de full resync
-  dice 100\% para RelayBook. Vamos a explicar las dos partes que fallaron.}
+  \note{Nicolás. 13:25--14:15 (50 s). Esta tabla es con una capacidad de tres veces
+  la carga normal. Binance con snapshot barato se recupera al instante, pero
+  durante el pico su atraso llega a 3.6 segundos; con snapshot caro tarda 38
+  segundos o no se recupera. RelayBook se recupera en cero segundos, con 1.1
+  segundos de atraso, y el origen carga 0.3 MB por segundo contra 120 de
+  Binance: 400 veces menos. En la línea de abajo, durante el pico Binance tuvo
+  164 mil reconexiones y RelayBook 629, porque a los lentos no se les corta.
+  El estilo Ably llegó a 120 segundos de atraso, así que esa predicción se
+  cumplió. Pero la columna de full resync dice 100 \% para RelayBook. Vamos a
+  ver las dos partes de la hipótesis.}
 \end{frame}
 
 \begin{frame}{Parte 1: Binance solo cae si el snapshot es caro}
   \centering\input{fig/f14-grilla}
   \takeaway{Ubicamos cuándo el contrato es vulnerable; no probamos que Binance falle.}
-  \note{Nicolás. 15:50--16:50 (60 s). Esta grilla son las 18 corridas del
-  contrato de Binance: capacidad en columnas, costo del snapshot en filas,
-  y en cada celda cuánto tardó en recuperarse tras el pico. Con snapshot
-  barato, fila de arriba, siempre se recupera en 11 segundos o menos: no
-  hay falla metaestable. Con snapshot caro y poca capacidad sobrante, en
-  rojo, no se recupera en los diez minutos de observación: 5 de 18
-  corridas. Ahí vemos el mecanismo del que hablamos: el origen sigue
-  procesando snapshots que los clientes ya abandonaron porque reintentaron;
-  llegó a gastar 146 GB en eso. Ese trabajo inútil es el efecto que sostiene
-  la falla. Como no sabemos cuánto le cuesta a Binance un snapshot, el
-  resultado dice en qué condiciones el contrato es vulnerable, no que
-  Binance falle en producción.}
+  \note{Nicolás. 14:15--15:15 (60 s). Parte uno: ¿el contrato de Binance sigue
+  degradado tras el pico? Esta grilla son sus 18 corridas: capacidad en
+  columnas, costo del snapshot en filas, y en cada celda cuánto tardó en
+  recuperarse. Con snapshot barato, la fila de arriba, siempre se recupera en
+  11 segundos o menos: no hay falla metaestable. Con snapshot caro y poca
+  capacidad sobrante, en rojo oscuro, no se recupera en los diez minutos que
+  observamos: 5 de 18 corridas. Ahí se ve el efecto sostenedor del que habló
+  Pedro: el origen sigue generando snapshots para clientes que ya los
+  abandonaron porque reintentaron, y llegó a gastar 146 GB en eso. Como no
+  sabemos cuánto le cuesta a Binance un snapshot, esto dice en qué condiciones
+  el contrato es vulnerable, no que Binance falle. La parte uno se cumple solo
+  en esas condiciones.}
 \end{frame}
 
 \begin{frame}{Parte 2: ¿por qué 100\% de \emph{full resync}?}
@@ -68,22 +64,19 @@
     \end{column}
   \end{columns}
   \takeaway{La mejora vino de \emph{dónde} se recupera y de la conflation, no del tamaño.}
-  \note{Nicolás. 16:50--18:20 (90 s). La segunda parte se cumplió para el
-  tiempo de recuperación, quedó cerca en el atraso, y falló en full
-  resync. El gráfico explica por qué. En el eje horizontal, cuántos
-  mensajes se perdió el cliente; en el vertical, cuántos niveles distintos
-  cambiaron. La línea roja es el tamaño del libro. A ritmo normal, un
-  segundo son unos 10 mensajes y tocan unos 1 100 niveles: el resume por
-  estado gana. Pero durante el pico a diez veces, un segundo son unos 100
-  mensajes y tocan unos 2 800 niveles, más que el libro entero. Entonces la
-  regla de seguridad manda el snapshot, y por eso el 100\%. Lo importante
-  es que ese snapshot sale del relay, no del origen, y fueron solo 629,
-  porque los lentos no se cortan. El atraso quedó en 1.1 a 1.3 segundos:
-  un cliente de 80 KB/s no alcanza un stream de unos 570 KB/s; la
-  conflation lo mantiene conectado, pero cada entrega le llega con cerca de
-  un segundo de atraso. Conclusión honesta: la mejora de RelayBook no viene
-  de recuperaciones más chicas, sino de dónde se recupera y de la
-  conflation.}
+  \note{Nicolás. 15:15--16:35 (80 s). Parte dos: ¿RelayBook cumple las tres metas?
+  Cumplió el tiempo de recuperación, quedó cerca en el atraso y falló en full
+  resync. Este gráfico explica por qué. En el eje horizontal, cuántos mensajes
+  se perdió el cliente; en el vertical, cuántos niveles distintos cambiaron.
+  La línea roja es el tamaño del libro, 2 000 niveles. A ritmo normal, un
+  segundo son unos 10 mensajes que tocan unos 1 100 niveles: menos que el
+  libro, y el resume por estado gana. En el pico a diez veces, un segundo son
+  unos 100 mensajes que tocan unos 2 800 niveles, más que el libro entero.
+  Entonces se activa la regla de seguridad y el relay manda el snapshot: por
+  eso el 100 \%. Lo importante es que ese snapshot sale del relay, no del
+  origen, y fueron solo 629. El atraso quedó entre 1.1 y 1.3 segundos por los
+  clientes lentos. La conclusión honesta: la mejora de RelayBook no vino de
+  recuperaciones más chicas, sino de dónde se recupera y de la conflation.}
 \end{frame}
 
 \begin{frame}{Conclusión y trabajo futuro}
@@ -113,16 +106,12 @@
     \end{column}
   \end{columns}
   \vspace{4mm}\hfill{\large\color{colAcento}¿Preguntas?}
-  \note{Nicolás. 18:20--19:30 (70 s). Para cerrar. El contrato público de
-  Binance tiene la estructura de una falla metaestable, y en la simulación
-  queda caído, pero solo cuando generar snapshots es caro y sobra poca
-  capacidad. RelayBook se recuperó de inmediato, mantuvo fija la carga del
-  origen y no cortó a los clientes lentos. Reanudar por estado ahorra en
-  cortes breves y frente a reenviar mensajes, pero no durante un pico. Y
-  la hipótesis: el tiempo de recuperación se cumplió, el atraso quedó
-  cerca, y el full resync se refutó. Como trabajo futuro: medir el costo
-  real de un snapshot, que es la gran incógnita; probar varios instrumentos
-  y picos reales; desplegar los relays en una red real; limitar cuánto
-  tiempo guarda el relay las lápidas, que nuestro prototipo no hace; y
-  ajustar la conflation para bajar de un segundo. Gracias, ¿preguntas?}
+  \note{Nicolás. 16:35--17:20 (45 s). Para cerrar. En la hipótesis: tiempo de
+  recuperación cumplido, atraso cerca y full resync refutado. El contrato de
+  Binance solo queda caído con snapshots caros y poca capacidad, y RelayBook
+  se recupera de inmediato sin cargar al origen. Como trabajo futuro: medir
+  cuánto cuesta de verdad generar un snapshot, que es la gran incógnita;
+  probar varios instrumentos y picos reales; desplegar relays en una red real;
+  limitar cuánto guarda el relay las lápidas; y ajustar la conflation para
+  bajar el atraso. Muchas gracias. ¿Preguntas?}
 \end{frame}
